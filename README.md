@@ -1,6 +1,6 @@
 # Span Events to Logs Connector
 
-A standalone OpenTelemetry Collector connector component that extracts span events and converts them into log records.  
+An OpenTelemetry Collector connector component that extracts span events and converts them into log records.  
 This project enables unified telemetry ingestion by bridging trace events with log processing pipelines.
 
 ## Features
