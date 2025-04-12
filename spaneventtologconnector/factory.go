@@ -19,7 +19,7 @@ func NewFactory() connector.Factory {
 	return connector.NewFactory(
 		metadata.Type,
 		createDefaultConfig,
-		connector.WithTracesToLogs(createTracesToLogs, metadata.Stability),
+		connector.WithTracesToLogs(createTracesToLogs, component.StabilityLevelAlpha),
 	)
 }
 

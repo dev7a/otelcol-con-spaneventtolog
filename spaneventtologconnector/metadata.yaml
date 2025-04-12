@@ -1,0 +1,31 @@
+type: spaneventtolog
+
+status:
+  class: connector
+  stability:
+    alpha: [traces_to_logs]
+  distributions: [contrib]
+  codeowners:
+    active: [dev7a]  # Replace with your GitHub username if different
+
+resource_attributes:
+  # Resource attributes relevant to the connector
+  span.event.name:
+    description: The name of the span event.
+    type: string
+    enabled: true
+  
+  span.event.severity:
+    description: The severity level mapped from the event name.
+    type: string
+    enabled: true
+
+# Configuration for tests
+tests:
+  config:
+    include_event_names: ["exception", "retry"]
+    include_span_context: true
+    log_attributes_from: ["event.attributes"]
+    severity_by_event_name:
+      exception: error
+      retry: warning

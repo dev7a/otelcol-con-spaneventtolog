@@ -1,0 +1,13 @@
+default:
+all_set:
+  resource_attributes:
+    span.event.name:
+      enabled: true
+    span.event.severity:
+      enabled: true
+none_set:
+  resource_attributes:
+    span.event.name:
+      enabled: false
+    span.event.severity:
+      enabled: false

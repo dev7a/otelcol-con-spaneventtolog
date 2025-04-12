@@ -176,7 +176,7 @@ func (c *Connector) populateLogRecord(
 
 	// Set severity level if configured
 	if severity, ok := c.config.SeverityByEventName[event.Name()]; ok {
-		severityNumber := config.MapSeverity(severity) // Use config.MapSeverity
+		severityNumber := mapSeverity(severity)
 		logRecord.SetSeverityNumber(severityNumber)
 		logRecord.SetSeverityText(severity)
 	} else {
@@ -226,4 +226,60 @@ func (c *Connector) shouldCopyAttributes(source string) bool {
 		}
 	}
 	return false
+}
+
+// mapSeverity maps a severity string to a plog.SeverityNumber.
+func mapSeverity(severity string) plog.SeverityNumber {
+	switch severity {
+	case "trace", "trace1":
+		return plog.SeverityNumberTrace
+	case "trace2":
+		return plog.SeverityNumberTrace2
+	case "trace3":
+		return plog.SeverityNumberTrace3
+	case "trace4":
+		return plog.SeverityNumberTrace4
+	case "debug", "debug1":
+		return plog.SeverityNumberDebug
+	case "debug2":
+		return plog.SeverityNumberDebug2
+	case "debug3":
+		return plog.SeverityNumberDebug3
+	case "debug4":
+		return plog.SeverityNumberDebug4
+	case "info", "info1":
+		return plog.SeverityNumberInfo
+	case "info2":
+		return plog.SeverityNumberInfo2
+	case "info3":
+		return plog.SeverityNumberInfo3
+	case "info4":
+		return plog.SeverityNumberInfo4
+	case "warn", "warn1":
+		return plog.SeverityNumberWarn
+	case "warn2":
+		return plog.SeverityNumberWarn2
+	case "warn3":
+		return plog.SeverityNumberWarn3
+	case "warn4":
+		return plog.SeverityNumberWarn4
+	case "error", "error1":
+		return plog.SeverityNumberError
+	case "error2":
+		return plog.SeverityNumberError2
+	case "error3":
+		return plog.SeverityNumberError3
+	case "error4":
+		return plog.SeverityNumberError4
+	case "fatal", "fatal1":
+		return plog.SeverityNumberFatal
+	case "fatal2":
+		return plog.SeverityNumberFatal2
+	case "fatal3":
+		return plog.SeverityNumberFatal3
+	case "fatal4":
+		return plog.SeverityNumberFatal4
+	default:
+		return plog.SeverityNumberUnspecified
+	}
 }

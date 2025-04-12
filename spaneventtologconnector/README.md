@@ -79,3 +79,44 @@ For spans that include database query events, you can convert these to logs to r
 Any custom event added to spans can be selectively converted to logs and assigned appropriate severity levels.
 
 [Connectors README]: https://github.com/open-telemetry/opentelemetry-collector/blob/main/connector/README.md
+
+## Development
+
+### Metadata Generation
+
+This component uses the OpenTelemetry Collector's metadata generator (mdatagen) to generate metadata files. To regenerate these files:
+
+1. **Install the mdatagen tool with the correct version**:
+   ```bash
+   go get go.opentelemetry.io/collector/cmd/mdatagen@v0.119.0
+   ```
+
+2. **Run the generator**:
+   ```bash
+   go run go.opentelemetry.io/collector/cmd/mdatagen ./metadata.yaml
+   ```
+
+   Or use the Makefile:
+   ```bash
+   make generate
+   ```
+
+> **Important**: Make sure to use mdatagen version v0.119.0 to match the OpenTelemetry Collector version used by this component. Using a different version may cause compatibility issues.
+
+The generated files include:
+- `internal/metadata/generated_status.go`: Component type and stability constants
+- `internal/metadata/generated_config.go`: Resource attribute configurations
+- `internal/metadata/generated_resource.go`: Resource attribute handling
+- `generated_component_test.go`: Component lifecycle tests
+- `generated_package_test.go`: Package-level tests
+- `documentation.md`: Auto-generated documentation
+
+### Running Tests
+
+To run the tests:
+
+```bash
+make test
+```
+
+This will run all tests, including the generated component tests.

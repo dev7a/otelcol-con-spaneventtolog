@@ -3,7 +3,11 @@
 GO ?= go
 
 .PHONY: all
-all: fmt lint test build
+all: generate fmt lint test build
+
+.PHONY: generate
+generate:
+	$(GO) run go.opentelemetry.io/collector/cmd/mdatagen ./metadata.yaml
 
 .PHONY: fmt
 fmt:
