@@ -1,0 +1,25 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+
+exporters:
+  loki:
+    endpoint: http://your-loki-endpoint:3100
+
+connectors:
+  spaneventtolog:
+    include_span_context: true
+    log_attributes_from: ["event.attributes", "resource.attributes"]
+    severity_by_event_name:
+      exception: error
+      retry: warning
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      exporters: [spaneventtolog]
+    logs:
+      receivers: [spaneventtolog]
+      exporters: [loki]
