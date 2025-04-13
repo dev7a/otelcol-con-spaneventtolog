@@ -1,33 +1,36 @@
 # Makefile for spaneventtologconnector
 
-GO ?= go
+.PHONY: build test clean tidy
 
-.PHONY: all
-all: generate fmt lint test build
+# Default target
+all: build
 
-.PHONY: generate
-generate:
-	$(GO) run go.opentelemetry.io/collector/cmd/mdatagen ./metadata.yaml
-
-.PHONY: fmt
-fmt:
-	$(GO) fmt ./...
-
-.PHONY: lint
-lint:
-	golangci-lint run
-
-.PHONY: test
-test:
-	# Run tests only for the current package to potentially avoid dependency issues
-	$(GO) test -v -race -coverprofile=coverage.out .
-
-.PHONY: build
+# Build the extension
 build:
-	# No specific build target needed for a library component,
-	# but this target can be used for future build steps.
-	@echo "Build step placeholder"
+	go build ./...
 
-.PHONY: clean
+# Run tests
+test:
+	go test -v ./...
+
+# Run tests with coverage
+test-with-cover:
+	go test -v -coverprofile=coverage.out ./...
+	go tool cover -html=coverage.out -o coverage.html
+
+# Clean build artifacts
 clean:
-	rm -f coverage.out
+	rm -f coverage.out coverage.html
+
+# Tidy go modules
+tidy:
+	go mod tidy
+
+# Download dependencies
+deps:
+	go mod download
+
+# Generate metadata files
+generate:
+	go get go.opentelemetry.io/collector/cmd/mdatagen@v0.119.0
+	go run go.opentelemetry.io/collector/cmd/mdatagen ./metadata.yaml
