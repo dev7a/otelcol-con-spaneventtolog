@@ -1,7 +1,7 @@
 # Span Events to Logs Connector
 
 An OpenTelemetry Collector connector component that extracts span events and converts them into log records.  
-This project enables unified telemetry ingestion by bridging trace events with log processing pipelines.
+This project enables unified telemetry ingestion by bridging trace events with log processing pipelines using only the tracing APIs.
 
 ## Features
 
@@ -36,7 +36,7 @@ The following settings are available:
 
 - `include_event_names` (optional): The list of event names to include in the conversion from events to logs. If empty, all events will be included.
 - `include_span_context` (optional, default: `true`): If true, span context (TraceID, SpanID, TraceFlags) will be included in the log records.
-- `log_attributes_from` (optional, default: `["event.attributes"]`): The list of attribute sources to include in the log record. Valid values:
+- `log_attributes_from` (optional, default: `["event.attributes", "resource.attributes"]`): The list of attribute sources to include in the log record. Valid values:
   - `event.attributes`: includes all attributes from the span event
   - `span.attributes`: includes all attributes from the parent span
   - `resource.attributes`: includes all resource attributes
