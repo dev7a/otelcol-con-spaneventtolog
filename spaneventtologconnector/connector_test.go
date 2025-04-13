@@ -31,7 +31,7 @@ func TestCreateDefaultConfig(t *testing.T) {
 	cfgTyped, ok := cfg.(*config.Config) // Use config.Config
 	assert.True(t, ok, "invalid config type")
 	assert.True(t, cfgTyped.IncludeSpanContext, "default IncludeSpanContext should be true")
-	assert.Equal(t, []string{"event.attributes"}, cfgTyped.LogAttributesFrom, "default LogAttributesFrom should include event.attributes")
+	assert.Equal(t, []string{"event.attributes", "resource.attributes"}, cfgTyped.LogAttributesFrom, "default LogAttributesFrom should include event.attributes and resource.attributes")
 	assert.Equal(t, map[string]string{"exception": "error"}, cfgTyped.SeverityByEventName, "default SeverityByEventName should map exception to error")
 }
 

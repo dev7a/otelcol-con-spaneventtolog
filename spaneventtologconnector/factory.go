@@ -27,7 +27,7 @@ func NewFactory() connector.Factory {
 func createDefaultConfig() component.Config {
 	return &config.Config{
 		IncludeSpanContext: true,
-		LogAttributesFrom:  []string{"event.attributes"},
+		LogAttributesFrom:  []string{"event.attributes", "resource.attributes"},
 		SeverityByEventName: map[string]string{
 			"exception": "error",
 		},
