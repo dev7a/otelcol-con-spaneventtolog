@@ -1,4 +1,4 @@
-module github.com/dev7a/otelcol-con-spaneventtolog/spaneventtologconnector
+module github.com/dev7a/otelcol-con-spaneventtolog
 
 go 1.24.1
 
