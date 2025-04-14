@@ -41,6 +41,7 @@ The following settings are available:
   - `span.attributes`: includes all attributes from the parent span
   - `resource.attributes`: includes all resource attributes
 - `severity_by_event_name` (optional): A mapping from event name to severity level. If the event name is not in the map, the default severity level (Info) will be used.
+- `add_level` (optional, default: `false`): If true, adds a "level" attribute to the log record based on the severity text. This is useful for log systems that expect a "level" field instead of severity. If the event attributes already contain a "level" field, it will not be overwritten.
 
 ### Example Configuration
 
@@ -54,6 +55,7 @@ connectors:
       exception: error
       retry: warning
       db.query: info
+    add_level: true  # Add level attribute based on severity text
 
 receivers:
   otlp:

@@ -192,6 +192,16 @@ func (c *Connector) populateLogRecord(
 		event.Attributes().CopyTo(logRecord.Attributes())
 	}
 
+	// Add level attribute if configured and not already present
+	if c.config.AddLevel {
+		// Check if level attribute already exists in log record attributes
+		_, hasLevel := logRecord.Attributes().Get("level")
+		if !hasLevel {
+			// Add level attribute based on severity text
+			logRecord.Attributes().PutStr("level", logRecord.SeverityText())
+		}
+	}
+
 	// Copy span attributes if configured
 	if c.shouldCopyAttributes("span.attributes") {
 		span.Attributes().Range(func(k string, v pcommon.Value) bool {

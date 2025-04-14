@@ -31,6 +31,7 @@ func createDefaultConfig() component.Config {
 		SeverityByEventName: map[string]string{
 			"exception": "error",
 		},
+		AddLevel: false, // Default to false for backward compatibility
 	}
 }
 

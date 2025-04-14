@@ -33,6 +33,7 @@ func TestCreateDefaultConfig(t *testing.T) {
 	assert.True(t, cfgTyped.IncludeSpanContext, "default IncludeSpanContext should be true")
 	assert.Equal(t, []string{"event.attributes", "resource.attributes"}, cfgTyped.LogAttributesFrom, "default LogAttributesFrom should include event.attributes and resource.attributes")
 	assert.Equal(t, map[string]string{"exception": "error"}, cfgTyped.SeverityByEventName, "default SeverityByEventName should map exception to error")
+	assert.False(t, cfgTyped.AddLevel, "default AddLevel should be false")
 }
 
 func TestConfig_Validate(t *testing.T) {
@@ -189,6 +190,111 @@ func TestConsumeTraces(t *testing.T) {
 	assert.Equal(t, "custom", customLog.Body().Str())
 	assert.Equal(t, plog.SeverityNumberInfo, customLog.SeverityNumber())
 	assert.Equal(t, "info", customLog.SeverityText())
+}
+
+func TestAddLevelAttribute(t *testing.T) {
+	// Create test traces with span events
+	traces := createTestTraces()
+
+	// Create a sink to capture the logs
+	logsSink := new(consumertest.LogsSink)
+
+	// Create the connector with AddLevel set to true
+	cfg := &config.Config{
+		IncludeSpanContext: true,
+		LogAttributesFrom:  []string{"event.attributes"},
+		SeverityByEventName: map[string]string{
+			"exception": "error",
+			"custom":    "info",
+		},
+		AddLevel: true,
+	}
+	connector := newConnector(zaptest.NewLogger(t), *cfg, logsSink)
+
+	// Consume traces
+	err := connector.ConsumeTraces(context.Background(), traces)
+	assert.NoError(t, err)
+
+	// Verify that we received logs with level attribute
+	allLogs := logsSink.AllLogs()
+	logs := allLogs[0]
+	resourceLogs := logs.ResourceLogs().At(0)
+	scopeLogs := resourceLogs.ScopeLogs().At(0)
+
+	// Check the exception log record
+	exceptionLog := scopeLogs.LogRecords().At(0)
+	levelAttr, exists := exceptionLog.Attributes().Get("level")
+	assert.True(t, exists, "level attribute should exist")
+	assert.Equal(t, "error", levelAttr.Str(), "level should match severity text")
+
+	// Check the custom log record
+	customLog := scopeLogs.LogRecords().At(1)
+	levelAttr, exists = customLog.Attributes().Get("level")
+	assert.True(t, exists, "level attribute should exist")
+	assert.Equal(t, "info", levelAttr.Str(), "level should match severity text")
+}
+
+func TestAddLevelAttributeWithExistingLevel(t *testing.T) {
+	// Create test traces with span events that already have level attribute
+	traces := createTestTracesWithLevelAttribute()
+
+	// Create a sink to capture the logs
+	logsSink := new(consumertest.LogsSink)
+
+	// Create the connector with AddLevel set to true
+	cfg := &config.Config{
+		IncludeSpanContext: true,
+		LogAttributesFrom:  []string{"event.attributes"},
+		SeverityByEventName: map[string]string{
+			"exception": "error",
+		},
+		AddLevel: true,
+	}
+	connector := newConnector(zaptest.NewLogger(t), *cfg, logsSink)
+
+	// Consume traces
+	err := connector.ConsumeTraces(context.Background(), traces)
+	assert.NoError(t, err)
+
+	// Verify that we received logs with the original level attribute
+	allLogs := logsSink.AllLogs()
+	logs := allLogs[0]
+	resourceLogs := logs.ResourceLogs().At(0)
+	scopeLogs := resourceLogs.ScopeLogs().At(0)
+
+	// Check the log record
+	logRecord := scopeLogs.LogRecords().At(0)
+	levelAttr, exists := logRecord.Attributes().Get("level")
+	assert.True(t, exists, "level attribute should exist")
+	assert.Equal(t, "critical", levelAttr.Str(), "level should be the original value from event attributes")
+}
+
+// Helper function to create test traces with level attribute
+func createTestTracesWithLevelAttribute() ptrace.Traces {
+	traces := ptrace.NewTraces()
+
+	// Add a resource
+	resource := traces.ResourceSpans().AppendEmpty().Resource()
+	resource.Attributes().PutStr("service.name", "test-service")
+
+	// Add a scope
+	scope := traces.ResourceSpans().At(0).ScopeSpans().AppendEmpty().Scope()
+	scope.SetName("test-scope")
+
+	// Add a span
+	span := traces.ResourceSpans().At(0).ScopeSpans().At(0).Spans().AppendEmpty()
+	span.SetName("test-span")
+	span.SetTraceID(pcommon.TraceID([16]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}))
+	span.SetSpanID(pcommon.SpanID([8]byte{1, 2, 3, 4, 5, 6, 7, 8}))
+
+	// Add an exception event with level attribute
+	exceptionEvent := span.Events().AppendEmpty()
+	exceptionEvent.SetName("exception")
+	exceptionEvent.SetTimestamp(pcommon.NewTimestampFromTime(time.Now()))
+	exceptionEvent.Attributes().PutStr("exception.type", "NullPointerException")
+	exceptionEvent.Attributes().PutStr("level", "critical") // Pre-existing level attribute
+
+	return traces
 }
 
 func createTestTraces() ptrace.Traces {
