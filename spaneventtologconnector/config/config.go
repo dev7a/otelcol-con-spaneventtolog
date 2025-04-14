@@ -34,6 +34,11 @@ type Config struct {
 	// If not, the default severity level (Info) will be used.
 	SeverityByEventName map[string]string `mapstructure:"severity_by_event_name"`
 
+	// AddLevel is a flag that indicates whether to add a "level" attribute to the log record
+	// based on the severity text. If true and a "level" attribute doesn't already exist,
+	// the severity text will be copied to a "level" attribute.
+	AddLevel bool `mapstructure:"add_level"`
+
 	// prevent unkeyed literal initialization
 	_ struct{}
 }

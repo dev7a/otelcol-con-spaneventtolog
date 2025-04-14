@@ -20,6 +20,7 @@ This plan outlines the steps to implement a new connector for the OpenTelemetry 
   - `include_span_context`: Boolean flag to include span context in logs.
   - `log_attributes_from`: Fields to be mapped from event and span attributes.
   - `severity_by_event_name`: Map event names to log severity levels.
+  - `add_level`: Boolean flag to add a "level" attribute based on severity text.
 - **Design Considerations:**
   - Ensure minimal performance overhead.
   - Decide on batching or rate-limiting if necessary.
@@ -94,6 +95,7 @@ connectors:
     severity_by_event_name:
       exception: error
       retry: warning
+    add_level: true  # Add level attribute based on severity text
 
 receivers:
   otlp:
