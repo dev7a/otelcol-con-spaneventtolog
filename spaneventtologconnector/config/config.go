@@ -5,8 +5,6 @@ package config // import "github.com/dev7a/otelcol-con-spaneventtolog/spaneventt
 
 import (
 	"fmt"
-
-	"go.opentelemetry.io/collector/pdata/plog"
 )
 
 // Config defines configuration for the span event to log connector.
@@ -38,6 +36,11 @@ type Config struct {
 	// based on the severity text. If true and a "level" attribute doesn't already exist,
 	// the severity text will be copied to a "level" attribute.
 	AddLevel bool `mapstructure:"add_level"`
+
+	// SeverityAttribute is the name of the event attribute to use for determining the severity level.
+	// If set, this takes precedence over SeverityByEventName. The attribute value must be a string
+	// matching one of the supported severity levels (case-insensitive).
+	SeverityAttribute string `mapstructure:"severity_attribute"`
 
 	// prevent unkeyed literal initialization
 	_ struct{}
@@ -92,60 +95,4 @@ func (c *Config) Validate() error {
 	}
 
 	return nil
-}
-
-// MapSeverity maps a severity string to a plog.SeverityNumber.
-func MapSeverity(severity string) plog.SeverityNumber { // Renamed to MapSeverity
-	switch severity {
-	case "trace", "trace1":
-		return plog.SeverityNumberTrace
-	case "trace2":
-		return plog.SeverityNumberTrace2
-	case "trace3":
-		return plog.SeverityNumberTrace3
-	case "trace4":
-		return plog.SeverityNumberTrace4
-	case "debug", "debug1":
-		return plog.SeverityNumberDebug
-	case "debug2":
-		return plog.SeverityNumberDebug2
-	case "debug3":
-		return plog.SeverityNumberDebug3
-	case "debug4":
-		return plog.SeverityNumberDebug4
-	case "info", "info1":
-		return plog.SeverityNumberInfo
-	case "info2":
-		return plog.SeverityNumberInfo2
-	case "info3":
-		return plog.SeverityNumberInfo3
-	case "info4":
-		return plog.SeverityNumberInfo4
-	case "warn", "warn1":
-		return plog.SeverityNumberWarn
-	case "warn2":
-		return plog.SeverityNumberWarn2
-	case "warn3":
-		return plog.SeverityNumberWarn3
-	case "warn4":
-		return plog.SeverityNumberWarn4
-	case "error", "error1":
-		return plog.SeverityNumberError
-	case "error2":
-		return plog.SeverityNumberError2
-	case "error3":
-		return plog.SeverityNumberError3
-	case "error4":
-		return plog.SeverityNumberError4
-	case "fatal", "fatal1":
-		return plog.SeverityNumberFatal
-	case "fatal2":
-		return plog.SeverityNumberFatal2
-	case "fatal3":
-		return plog.SeverityNumberFatal3
-	case "fatal4":
-		return plog.SeverityNumberFatal4
-	default:
-		return plog.SeverityNumberUnspecified
-	}
 }

@@ -5,6 +5,7 @@ package spaneventtologconnector // import "github.com/dev7a/otelcol-con-spaneven
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"go.opentelemetry.io/collector/component"
@@ -167,6 +168,48 @@ func (c *Connector) populateLogRecord(
 	event ptrace.SpanEvent,
 	span ptrace.Span,
 ) {
+	// Default severity
+	severityNumber := plog.SeverityNumberInfo
+	severityText := "info"
+	severityFound := false
+
+	// 1. Check SeverityAttribute (Highest Precedence)
+	if c.config.SeverityAttribute != "" {
+		if attrValue, exists := event.Attributes().Get(c.config.SeverityAttribute); exists && attrValue.Type() == pcommon.ValueTypeStr {
+			parsedNumber, parsedText := mapSeverity(attrValue.Str())
+			if parsedNumber != plog.SeverityNumberUnspecified {
+				severityNumber = parsedNumber
+				severityText = parsedText
+				severityFound = true
+			}
+		}
+	}
+
+	// 2. Check SeverityByEventName (Substring Match, Longest Precedence)
+	if !severityFound && len(c.config.SeverityByEventName) > 0 {
+		lowerEventName := strings.ToLower(event.Name())
+		longestMatchKeyLen := 0
+		matchedSeverityText := ""
+
+		for key, configuredSeverity := range c.config.SeverityByEventName {
+			lowerKey := strings.ToLower(key)
+			if strings.Contains(lowerEventName, lowerKey) {
+				if len(key) > longestMatchKeyLen {
+					// Check if the configuredSeverity is valid before accepting it
+					parsedNumber, parsedText := mapSeverity(configuredSeverity)
+					if parsedNumber != plog.SeverityNumberUnspecified {
+						longestMatchKeyLen = len(key)
+						matchedSeverityText = parsedText // Use the canonical text from mapSeverity
+					}
+				}
+			}
+		}
+
+		if matchedSeverityText != "" {
+			severityNumber, severityText = mapSeverity(matchedSeverityText) // Remap to get both Number and Text
+			severityFound = true
+		}
+	}
 
 	// Set timestamp from event
 	logRecord.SetTimestamp(event.Timestamp())
@@ -174,15 +217,9 @@ func (c *Connector) populateLogRecord(
 	// Set observed timestamp to current time
 	logRecord.SetObservedTimestamp(pcommon.NewTimestampFromTime(time.Now()))
 
-	// Set severity level if configured
-	if severity, ok := c.config.SeverityByEventName[event.Name()]; ok {
-		severityNumber := mapSeverity(severity)
-		logRecord.SetSeverityNumber(severityNumber)
-		logRecord.SetSeverityText(severity)
-	} else {
-		logRecord.SetSeverityNumber(plog.SeverityNumberInfo)
-		logRecord.SetSeverityText("info")
-	}
+	// Set the determined severity (or default if not found)
+	logRecord.SetSeverityNumber(severityNumber)
+	logRecord.SetSeverityText(severityText)
 
 	// Set body to event name
 	logRecord.Body().SetStr(event.Name())
@@ -238,58 +275,60 @@ func (c *Connector) shouldCopyAttributes(source string) bool {
 	return false
 }
 
-// mapSeverity maps a severity string to a plog.SeverityNumber.
-func mapSeverity(severity string) plog.SeverityNumber {
-	switch severity {
+// mapSeverity maps a severity string (case-insensitive) to a plog.SeverityNumber and its canonical text.
+// Returns SeverityNumberUnspecified and an empty string if the input is not a valid severity.
+func mapSeverity(severity string) (plog.SeverityNumber, string) {
+	lowerSeverity := strings.ToLower(severity)
+	switch lowerSeverity {
 	case "trace", "trace1":
-		return plog.SeverityNumberTrace
+		return plog.SeverityNumberTrace, "trace"
 	case "trace2":
-		return plog.SeverityNumberTrace2
+		return plog.SeverityNumberTrace2, "trace2"
 	case "trace3":
-		return plog.SeverityNumberTrace3
+		return plog.SeverityNumberTrace3, "trace3"
 	case "trace4":
-		return plog.SeverityNumberTrace4
+		return plog.SeverityNumberTrace4, "trace4"
 	case "debug", "debug1":
-		return plog.SeverityNumberDebug
+		return plog.SeverityNumberDebug, "debug"
 	case "debug2":
-		return plog.SeverityNumberDebug2
+		return plog.SeverityNumberDebug2, "debug2"
 	case "debug3":
-		return plog.SeverityNumberDebug3
+		return plog.SeverityNumberDebug3, "debug3"
 	case "debug4":
-		return plog.SeverityNumberDebug4
+		return plog.SeverityNumberDebug4, "debug4"
 	case "info", "info1":
-		return plog.SeverityNumberInfo
+		return plog.SeverityNumberInfo, "info"
 	case "info2":
-		return plog.SeverityNumberInfo2
+		return plog.SeverityNumberInfo2, "info2"
 	case "info3":
-		return plog.SeverityNumberInfo3
+		return plog.SeverityNumberInfo3, "info3"
 	case "info4":
-		return plog.SeverityNumberInfo4
-	case "warn", "warn1":
-		return plog.SeverityNumberWarn
-	case "warn2":
-		return plog.SeverityNumberWarn2
-	case "warn3":
-		return plog.SeverityNumberWarn3
-	case "warn4":
-		return plog.SeverityNumberWarn4
-	case "error", "error1":
-		return plog.SeverityNumberError
+		return plog.SeverityNumberInfo4, "info4"
+	case "warn", "warning", "warn1":
+		return plog.SeverityNumberWarn, "warn"
+	case "warn2", "warning2":
+		return plog.SeverityNumberWarn2, "warn2"
+	case "warn3", "warning3":
+		return plog.SeverityNumberWarn3, "warn3"
+	case "warn4", "warning4":
+		return plog.SeverityNumberWarn4, "warn4"
+	case "error", "err", "error1":
+		return plog.SeverityNumberError, "error"
 	case "error2":
-		return plog.SeverityNumberError2
+		return plog.SeverityNumberError2, "error2"
 	case "error3":
-		return plog.SeverityNumberError3
+		return plog.SeverityNumberError3, "error3"
 	case "error4":
-		return plog.SeverityNumberError4
+		return plog.SeverityNumberError4, "error4"
 	case "fatal", "fatal1":
-		return plog.SeverityNumberFatal
+		return plog.SeverityNumberFatal, "fatal"
 	case "fatal2":
-		return plog.SeverityNumberFatal2
+		return plog.SeverityNumberFatal2, "fatal2"
 	case "fatal3":
-		return plog.SeverityNumberFatal3
+		return plog.SeverityNumberFatal3, "fatal3"
 	case "fatal4":
-		return plog.SeverityNumberFatal4
+		return plog.SeverityNumberFatal4, "fatal4"
 	default:
-		return plog.SeverityNumberUnspecified
+		return plog.SeverityNumberUnspecified, ""
 	}
 }

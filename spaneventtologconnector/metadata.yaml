@@ -23,9 +23,10 @@ resource_attributes:
 # Configuration for tests
 tests:
   config:
-    include_event_names: ["exception", "retry"]
+    # Corresponds directly to the Config struct fields
+    include_event_names: [exception, retry]
     include_span_context: true
-    log_attributes_from: ["event.attributes"]
-    severity_by_event_name:
-      exception: error
-      retry: warning
+    log_attributes_from: [event.attributes]
+    severity_by_event_name: {exception: error}
+    add_level: false
+    severity_attribute: # Empty string
