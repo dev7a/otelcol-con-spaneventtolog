@@ -102,28 +102,6 @@ func TestCreateTracesToLogs(t *testing.T) {
 	assert.NotNil(t, connectorInstance) // Check connectorInstance
 }
 
-func TestMapSeverity(t *testing.T) {
-	testCases := []struct {
-		severity string
-		expected plog.SeverityNumber
-	}{
-		{"trace", plog.SeverityNumberTrace},
-		{"debug", plog.SeverityNumberDebug},
-		{"info", plog.SeverityNumberInfo},
-		{"warn", plog.SeverityNumberWarn},
-		{"error", plog.SeverityNumberError},
-		{"fatal", plog.SeverityNumberFatal},
-		{"unknown", plog.SeverityNumberUnspecified},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.severity, func(t *testing.T) {
-			result := config.MapSeverity(tc.severity) // Use config.MapSeverity
-			assert.Equal(t, tc.expected, result)
-		})
-	}
-}
-
 func TestConsumeTraces(t *testing.T) {
 	// Create test traces with span events
 	traces := createTestTraces()
@@ -267,6 +245,282 @@ func TestAddLevelAttributeWithExistingLevel(t *testing.T) {
 	levelAttr, exists := logRecord.Attributes().Get("level")
 	assert.True(t, exists, "level attribute should exist")
 	assert.Equal(t, "critical", levelAttr.Str(), "level should be the original value from event attributes")
+}
+
+func TestConsumeTraces_SeverityLogic(t *testing.T) {
+	testCases := []struct {
+		desc            string
+		cfg             *config.Config
+		eventName       string
+		eventAttrs      map[string]interface{}
+		expectedNum     plog.SeverityNumber
+		expectedText    string
+		expectLevelAttr bool // Only check if AddLevel is true in cfg
+	}{
+		{
+			desc: "SeverityAttribute (present, valid, case-insensitive)",
+			cfg: &config.Config{
+				SeverityAttribute: "event.level",
+			},
+			eventName:    "test event",
+			eventAttrs:   map[string]interface{}{"event.level": "Warn"},
+			expectedNum:  plog.SeverityNumberWarn,
+			expectedText: "warn",
+		},
+		{
+			desc: "SeverityAttribute (present, valid, alias)",
+			cfg: &config.Config{
+				SeverityAttribute: "log.severity",
+			},
+			eventName:    "test event",
+			eventAttrs:   map[string]interface{}{"log.severity": "ERR"},
+			expectedNum:  plog.SeverityNumberError,
+			expectedText: "error",
+		},
+		{
+			desc: "SeverityAttribute (takes precedence over event name map)",
+			cfg: &config.Config{
+				SeverityAttribute:   "level",
+				SeverityByEventName: map[string]string{"test": "fatal"},
+			},
+			eventName:    "test event",
+			eventAttrs:   map[string]interface{}{"level": "DEBUG"},
+			expectedNum:  plog.SeverityNumberDebug,
+			expectedText: "debug",
+		},
+		{
+			desc: "SeverityAttribute (present but invalid value, fallback to event name)",
+			cfg: &config.Config{
+				SeverityAttribute:   "level",
+				SeverityByEventName: map[string]string{"event": "error"},
+			},
+			eventName:    "test event",
+			eventAttrs:   map[string]interface{}{"level": "invalid"},
+			expectedNum:  plog.SeverityNumberError, // Falls back to event name match
+			expectedText: "error",
+		},
+		{
+			desc: "SeverityAttribute (present but invalid value, fallback to default)",
+			cfg: &config.Config{
+				SeverityAttribute:   "level",
+				SeverityByEventName: map[string]string{}, // No matching event name
+			},
+			eventName:    "test event",
+			eventAttrs:   map[string]interface{}{"level": "invalid"},
+			expectedNum:  plog.SeverityNumberInfo, // Falls back to default
+			expectedText: "info",
+		},
+		{
+			desc: "SeverityAttribute (configured but not present, fallback to event name)",
+			cfg: &config.Config{
+				SeverityAttribute:   "level",
+				SeverityByEventName: map[string]string{"test": "fatal"},
+			},
+			eventName:    "test event",
+			eventAttrs:   map[string]interface{}{"other.attr": "value"},
+			expectedNum:  plog.SeverityNumberFatal, // Falls back to event name match
+			expectedText: "fatal",
+		},
+		{
+			desc: "SeverityAttribute (configured but non-string type, fallback to event name)",
+			cfg: &config.Config{
+				SeverityAttribute:   "level",
+				SeverityByEventName: map[string]string{"test": "fatal"},
+			},
+			eventName:    "test event",
+			eventAttrs:   map[string]interface{}{"level": 123},
+			expectedNum:  plog.SeverityNumberFatal, // Falls back to event name match
+			expectedText: "fatal",
+		},
+		{
+			desc: "EventNameMap (simple substring, case-insensitive)",
+			cfg: &config.Config{
+				SeverityByEventName: map[string]string{"exception": "error"},
+			},
+			eventName:    "An Exception Occurred",
+			eventAttrs:   map[string]interface{}{},
+			expectedNum:  plog.SeverityNumberError,
+			expectedText: "error",
+		},
+		{
+			desc: "EventNameMap (longest match precedence)",
+			cfg: &config.Config{
+				SeverityByEventName: map[string]string{
+					"error":            "error",
+					"connection error": "fatal",
+				},
+			},
+			eventName:    "Database connection error",
+			eventAttrs:   map[string]interface{}{},
+			expectedNum:  plog.SeverityNumberFatal, // "connection error" is longer
+			expectedText: "fatal",
+		},
+		{
+			desc: "EventNameMap (longest match precedence, case-insensitive keys)",
+			cfg: &config.Config{
+				SeverityByEventName: map[string]string{
+					"ERROR":            "error",
+					"Connection Error": "fatal",
+				},
+			},
+			eventName:    "Database connection error",
+			eventAttrs:   map[string]interface{}{},
+			expectedNum:  plog.SeverityNumberFatal,
+			expectedText: "fatal",
+		},
+		{
+			desc: "EventNameMap (no match, fallback to default)",
+			cfg: &config.Config{
+				SeverityByEventName: map[string]string{"exception": "error"},
+			},
+			eventName:    "Normal event",
+			eventAttrs:   map[string]interface{}{},
+			expectedNum:  plog.SeverityNumberInfo,
+			expectedText: "info",
+		},
+		{
+			desc: "EventNameMap (invalid severity value in map, fallback to default)",
+			cfg: &config.Config{
+				SeverityByEventName: map[string]string{"test": "invalid"},
+			},
+			eventName:    "test event",
+			eventAttrs:   map[string]interface{}{},
+			expectedNum:  plog.SeverityNumberInfo,
+			expectedText: "info",
+		},
+		{
+			desc: "Default (no attribute, no map match)",
+			cfg: &config.Config{
+				SeverityByEventName: map[string]string{}, // Empty map
+			},
+			eventName:    "Some event",
+			eventAttrs:   map[string]interface{}{},
+			expectedNum:  plog.SeverityNumberInfo,
+			expectedText: "info",
+		},
+		{
+			desc: "SeverityAttribute with AddLevel=true",
+			cfg: &config.Config{
+				SeverityAttribute: "level",
+				AddLevel:          true,
+			},
+			eventName:       "test event",
+			eventAttrs:      map[string]interface{}{"level": "FATAL"},
+			expectedNum:     plog.SeverityNumberFatal,
+			expectedText:    "fatal",
+			expectLevelAttr: true,
+		},
+		{
+			desc: "EventNameMap with AddLevel=true",
+			cfg: &config.Config{
+				SeverityByEventName: map[string]string{"critical": "fatal"},
+				AddLevel:            true,
+			},
+			eventName:       "critical error",
+			eventAttrs:      map[string]interface{}{},
+			expectedNum:     plog.SeverityNumberFatal,
+			expectedText:    "fatal",
+			expectLevelAttr: true,
+		},
+		{
+			desc: "Default with AddLevel=true",
+			cfg: &config.Config{
+				AddLevel: true,
+			},
+			eventName:       "default event",
+			eventAttrs:      map[string]interface{}{},
+			expectedNum:     plog.SeverityNumberInfo,
+			expectedText:    "info",
+			expectLevelAttr: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			// Create trace with the specified event
+			traces := ptrace.NewTraces()
+			span := traces.ResourceSpans().AppendEmpty().ScopeSpans().AppendEmpty().Spans().AppendEmpty()
+			event := span.Events().AppendEmpty()
+			event.SetName(tc.eventName)
+			attrs := event.Attributes()
+			for k, v := range tc.eventAttrs {
+				switch val := v.(type) {
+				case string:
+					attrs.PutStr(k, val)
+				case int:
+					attrs.PutInt(k, int64(val))
+					// Add other types if needed
+				}
+			}
+
+			// Ensure default config values don't interfere unless specified
+			if tc.cfg.IncludeSpanContext == false && !mapContains(tc.cfg.LogAttributesFrom, "span.attributes") {
+				tc.cfg.IncludeSpanContext = true // Need span context for the test setup
+			}
+			if !mapContains(tc.cfg.LogAttributesFrom, "event.attributes") {
+				tc.cfg.LogAttributesFrom = append(tc.cfg.LogAttributesFrom, "event.attributes") // Needed for SeverityAttribute
+			}
+
+			logsSink := new(consumertest.LogsSink)
+			connector := newConnector(zaptest.NewLogger(t), *tc.cfg, logsSink)
+
+			err := connector.ConsumeTraces(context.Background(), traces)
+			assert.NoError(t, err)
+
+			allLogs := logsSink.AllLogs()
+			require.Equal(t, 1, len(allLogs), "Expected exactly one batch of logs")
+			logs := allLogs[0]
+			require.Equal(t, 1, logs.ResourceLogs().Len())
+			resourceLogs := logs.ResourceLogs().At(0)
+			require.Equal(t, 1, resourceLogs.ScopeLogs().Len())
+			scopeLogs := resourceLogs.ScopeLogs().At(0)
+			require.Equal(t, 1, scopeLogs.LogRecords().Len(), "Expected exactly one log record")
+
+			logRecord := scopeLogs.LogRecords().At(0)
+
+			// Assert SeverityNumber and SeverityText
+			assert.Equal(t, tc.expectedNum, logRecord.SeverityNumber(), "SeverityNumber mismatch")
+			assert.Equal(t, tc.expectedText, logRecord.SeverityText(), "SeverityText mismatch")
+
+			// Assert level attribute only when AddLevel is configured to true
+			if tc.cfg.AddLevel {
+				levelAttr, exists := logRecord.Attributes().Get("level")
+				if tc.expectLevelAttr { // We expect AddLevel to have added it (or it existed already)
+					assert.True(t, exists, "level attribute should exist when AddLevel=true and severity was determined")
+					// Check if the original event had a level attribute. If so, it shouldn't be overwritten.
+					if origLevelVal, origExists := tc.eventAttrs["level"]; origExists {
+						if levelStr, ok := origLevelVal.(string); ok {
+							assert.Equal(t, levelStr, levelAttr.Str(), "level attribute should retain original value if present in event")
+						} else {
+							// If original level wasn't a string, it shouldn't have prevented adding the derived one.
+							assert.Equal(t, tc.expectedText, levelAttr.Str(), "level attribute should match canonical severity text")
+						}
+					} else {
+						// Original event didn't have 'level', so AddLevel should have added the canonical text.
+						assert.Equal(t, tc.expectedText, levelAttr.Str(), "level attribute should match canonical severity text")
+					}
+				} else {
+					// This case might occur if AddLevel is true, but severity was Unspecified (though defaults prevent this currently)
+					// Or if the original event had a non-string 'level' attribute.
+					// Let's assume for now if expectLevelAttr is false, it shouldn't exist.
+					assert.False(t, exists, "level attribute should not exist when AddLevel=true but expectLevelAttr=false")
+				}
+			} else {
+				// If AddLevel is false, we don't assert about the 'level' attribute's presence,
+				// as it might have been copied from the original event attributes.
+			}
+		})
+	}
+}
+
+// Helper function to check if a string slice contains a string
+func mapContains(slice []string, str string) bool {
+	for _, item := range slice {
+		if item == str {
+			return true
+		}
+	}
+	return false
 }
 
 // Helper function to create test traces with level attribute
