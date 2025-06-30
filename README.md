@@ -147,17 +147,12 @@ make all            # Default target (build)
    make deps
    ```
 
-3. **Generate metadata** (if needed):
-   ```bash
-   make generate
-   ```
-
-4. **Run tests**:
+3. **Run tests**:
    ```bash
    make test
    ```
 
-5. **Build the connector**:
+4. **Build the connector**:
    ```bash
    make build
    ```

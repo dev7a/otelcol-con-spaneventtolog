@@ -15,6 +15,7 @@ import (
 	"go.opentelemetry.io/collector/pdata/ptrace"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 
@@ -75,6 +76,7 @@ func (c *Connector) ConsumeTraces(ctx context.Context, traces ptrace.Traces) err
 		err := c.logsConsumer.ConsumeLogs(ctx, logs)
 		if err != nil {
 			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
 			return err
 		}
 	} else {
