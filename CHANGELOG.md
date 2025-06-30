@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.0] - 2025-06-30
+
+### Added
+- Added comprehensive tracing instrumentation to the connector for observability
+  - `connector/spaneventtolog/ConsumeTraces` span tracks main entry point with input/output metrics
+  - `connector/spaneventtolog/ExtractLogs` span tracks transformation logic with event processing metrics
+- Tracing follows OpenTelemetry Collector naming conventions for better integration
+
+### Changed
+- Updated dependencies to latest patch versions for improved security and stability
+  - Updated `github.com/go-logr/logr` from v1.4.2 to v1.4.3
+  - Updated `github.com/knadh/koanf/maps` from v0.1.1 to v0.1.2
+  - Updated `google.golang.org/grpc` from v1.71.0 to v1.71.3
+  - Updated various other dependencies to latest patch versions
+
 ## [0.4.1] - 2025-06-08
 
 ### Changed
