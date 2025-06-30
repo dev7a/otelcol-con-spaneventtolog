@@ -68,7 +68,7 @@ func (c *Connector) ConsumeTraces(ctx context.Context, traces ptrace.Traces) err
 	)
 	defer span.End()
 
-	logs := c.extractLogsFromTraces(traces)
+	logs := c.extractLogsFromTraces(ctx, traces)
 
 	if logs.LogRecordCount() > 0 {
 		span.SetAttributes(attribute.Int("output_logs", logs.LogRecordCount()))
@@ -127,8 +127,8 @@ func findOrCreateScopeLogs(rl plog.ResourceLogs, scope pcommon.InstrumentationSc
 }
 
 // extractLogsFromTraces extracts logs from traces, grouping by resource and scope.
-func (c *Connector) extractLogsFromTraces(traces ptrace.Traces) plog.Logs {
-	_, span := c.tracer.Start(context.Background(), "connector/spaneventtolog/ExtractLogs")
+func (c *Connector) extractLogsFromTraces(ctx context.Context, traces ptrace.Traces) plog.Logs {
+	_, span := c.tracer.Start(ctx, "connector/spaneventtolog/ExtractLogs")
 	defer span.End()
 
 	logs := plog.NewLogs()
