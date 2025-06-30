@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.5.1] - 2025-01-06
+## [0.5.1] - 2026-06-30
 
 ### Fixed
 - Fixed connector tracing instrumentation to use component's TracerProvider instead of global tracer
@@ -10,7 +10,7 @@ All notable changes to this project will be documented in this file.
 - Tracing instrumentation now follows the same patterns as upstream collector components (receivers/exporters)
 - This ensures connector spans appear in traces alongside other collector component spans
 
-## [0.5.0] - 2025-06-30
+## [0.5.0] - 2026-06-30
 
 ### Added
 - Added comprehensive tracing instrumentation to the connector for observability
