@@ -9,11 +9,11 @@ import (
 	"time"
 
 	"go.opentelemetry.io/collector/component"
+	"go.opentelemetry.io/collector/connector"
 	"go.opentelemetry.io/collector/consumer"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/plog"
 	"go.opentelemetry.io/collector/pdata/ptrace"
-	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
@@ -35,12 +35,12 @@ var _ consumer.Traces = (*Connector)(nil)
 var _ component.Component = (*Connector)(nil)
 
 // newConnector creates a new span event to log connector.
-func newConnector(logger *zap.Logger, cfg config.Config, logsConsumer consumer.Logs) *Connector {
+func newConnector(settings connector.Settings, cfg config.Config, logsConsumer consumer.Logs) *Connector {
 	c := &Connector{
 		config:       cfg,
 		logsConsumer: logsConsumer,
-		logger:       logger,
-		tracer:       otel.Tracer("spaneventtolog-connector"),
+		logger:       settings.Logger,
+		tracer:       settings.TracerProvider.Tracer(settings.ID.String()),
 	}
 
 	// Create a map for fast lookup of included event names

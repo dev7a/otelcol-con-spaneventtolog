@@ -31,7 +31,7 @@ func TestTracingInstrumentationIntegration(t *testing.T) {
 	// Create a sink to capture the logs
 	logsSink := new(consumertest.LogsSink)
 
-	// Create the connector (uses otel.Tracer internally)
+	// Create the connector (uses component TracerProvider internally)
 	cfg := &config.Config{
 		IncludeSpanContext: true,
 		LogAttributesFrom:  []string{"event.attributes"},
@@ -39,7 +39,8 @@ func TestTracingInstrumentationIntegration(t *testing.T) {
 			"exception": "error",
 		},
 	}
-	connector := newConnector(zaptest.NewLogger(t), *cfg, logsSink)
+	settings := createTestConnectorSettings(t)
+	connector := newConnector(settings, *cfg, logsSink)
 
 	// Verify tracer is set
 	assert.NotNil(t, connector.tracer, "Tracer should be initialized")
@@ -71,7 +72,8 @@ func TestTracingInstrumentationWithError(t *testing.T) {
 		IncludeSpanContext: true,
 		LogAttributesFrom:  []string{"event.attributes"},
 	}
-	connector := newConnector(zaptest.NewLogger(t), *cfg, errorConsumer)
+	settings := createTestConnectorSettings(t)
+	connector := newConnector(settings, *cfg, errorConsumer)
 
 	// Verify tracer is set
 	assert.NotNil(t, connector.tracer, "Tracer should be initialized")
@@ -100,7 +102,8 @@ func TestTracingInstrumentationNoEvents(t *testing.T) {
 		IncludeSpanContext: true,
 		LogAttributesFrom:  []string{"event.attributes"},
 	}
-	connector := newConnector(zaptest.NewLogger(t), *cfg, logsSink)
+	settings := createTestConnectorSettings(t)
+	connector := newConnector(settings, *cfg, logsSink)
 
 	// Verify tracer is set
 	assert.NotNil(t, connector.tracer, "Tracer should be initialized")
@@ -119,7 +122,8 @@ func TestConnectorTracerInitialization(t *testing.T) {
 	cfg := &config.Config{}
 	logsSink := new(consumertest.LogsSink)
 
-	connector := newConnector(zaptest.NewLogger(t), *cfg, logsSink)
+	settings := createTestConnectorSettings(t)
+	connector := newConnector(settings, *cfg, logsSink)
 
 	// Verify tracer is initialized with correct name
 	assert.NotNil(t, connector.tracer, "Tracer should be initialized")
@@ -218,4 +222,14 @@ func createTestTraces() ptrace.Traces {
 	customEvent.Attributes().PutInt("custom.count", 42)
 
 	return traces
+}
+
+func createTestConnectorSettings(t *testing.T) connector.Settings {
+	telSettings := componenttest.NewNopTelemetrySettings()
+	telSettings.Logger = zaptest.NewLogger(t)
+	return connector.Settings{
+		ID:                component.MustNewIDWithName("spaneventtolog", "test"),
+		TelemetrySettings: telSettings,
+		BuildInfo:         component.NewDefaultBuildInfo(),
+	}
 }
