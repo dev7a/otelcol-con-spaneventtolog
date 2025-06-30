@@ -39,5 +39,5 @@ func createDefaultConfig() component.Config {
 // createTracesToLogs creates a traces to logs connector based on the config.
 func createTracesToLogs(_ context.Context, params connector.Settings, cfg component.Config, nextConsumer consumer.Logs) (connector.Traces, error) {
 	c := cfg.(*config.Config)
-	return newConnector(params.Logger, *c, nextConsumer), nil
+	return newConnector(params, *c, nextConsumer), nil
 }
