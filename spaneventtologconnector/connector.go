@@ -130,13 +130,13 @@ func findOrCreateScopeLogs(rl plog.ResourceLogs, scope pcommon.InstrumentationSc
 
 // extractLogsFromTraces extracts logs from traces, grouping by resource and scope.
 func (c *Connector) extractLogsFromTraces(ctx context.Context, traces ptrace.Traces) plog.Logs {
-	_, span := c.tracer.Start(ctx, "connector/spaneventtolog/ExtractLogs")
-	defer span.End()
+	_, otelSpan := c.tracer.Start(ctx, "connector/spaneventtolog/ExtractLogs")
+	defer otelSpan.End()
 
 	logs := plog.NewLogs()
 
 	if traces.ResourceSpans().Len() == 0 {
-		span.SetAttributes(attribute.String("result", "no_resource_spans"))
+		otelSpan.SetAttributes(attribute.String("result", "no_resource_spans"))
 		return logs
 	}
 
@@ -190,7 +190,7 @@ func (c *Connector) extractLogsFromTraces(ctx context.Context, traces ptrace.Tra
 		}
 	}
 
-	span.SetAttributes(
+	otelSpan.SetAttributes(
 		attribute.Int("total_events_found", totalEvents),
 		attribute.Int("events_processed", processedEvents),
 		attribute.Int("logs_created", logs.LogRecordCount()),
