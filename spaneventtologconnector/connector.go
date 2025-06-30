@@ -13,6 +13,9 @@ import (
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/plog"
 	"go.opentelemetry.io/collector/pdata/ptrace"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 
 	"github.com/dev7a/otelcol-con-spaneventtolog/spaneventtologconnector/config"
@@ -24,6 +27,7 @@ type Connector struct {
 	logsConsumer consumer.Logs
 	logger       *zap.Logger
 	eventNameSet map[string]struct{}
+	tracer       trace.Tracer
 }
 
 var _ consumer.Traces = (*Connector)(nil)
@@ -35,6 +39,7 @@ func newConnector(logger *zap.Logger, cfg config.Config, logsConsumer consumer.L
 		config:       cfg,
 		logsConsumer: logsConsumer,
 		logger:       logger,
+		tracer:       otel.Tracer("spaneventtolog-connector"),
 	}
 
 	// Create a map for fast lookup of included event names
@@ -55,10 +60,25 @@ func (c *Connector) Capabilities() consumer.Capabilities {
 
 // ConsumeTraces implements the consumer.Traces interface.
 func (c *Connector) ConsumeTraces(ctx context.Context, traces ptrace.Traces) error {
+	ctx, span := c.tracer.Start(ctx, "connector/spaneventtolog/ConsumeTraces",
+		trace.WithAttributes(
+			attribute.Int("input_spans", traces.SpanCount()),
+			attribute.Int("resource_spans", traces.ResourceSpans().Len()),
+		),
+	)
+	defer span.End()
+
 	logs := c.extractLogsFromTraces(traces)
 
 	if logs.LogRecordCount() > 0 {
-		return c.logsConsumer.ConsumeLogs(ctx, logs)
+		span.SetAttributes(attribute.Int("output_logs", logs.LogRecordCount()))
+		err := c.logsConsumer.ConsumeLogs(ctx, logs)
+		if err != nil {
+			span.RecordError(err)
+			return err
+		}
+	} else {
+		span.SetAttributes(attribute.Int("output_logs", 0))
 	}
 
 	return nil
@@ -108,11 +128,18 @@ func findOrCreateScopeLogs(rl plog.ResourceLogs, scope pcommon.InstrumentationSc
 
 // extractLogsFromTraces extracts logs from traces, grouping by resource and scope.
 func (c *Connector) extractLogsFromTraces(traces ptrace.Traces) plog.Logs {
+	_, span := c.tracer.Start(context.Background(), "connector/spaneventtolog/ExtractLogs")
+	defer span.End()
+
 	logs := plog.NewLogs()
 
 	if traces.ResourceSpans().Len() == 0 {
+		span.SetAttributes(attribute.String("result", "no_resource_spans"))
 		return logs
 	}
+
+	totalEvents := 0
+	processedEvents := 0
 
 	for i := 0; i < traces.ResourceSpans().Len(); i++ {
 		resourceSpans := traces.ResourceSpans().At(i)
@@ -143,6 +170,7 @@ func (c *Connector) extractLogsFromTraces(traces ptrace.Traces) plog.Logs {
 				// Process each event in the span
 				for l := 0; l < span.Events().Len(); l++ {
 					event := span.Events().At(l)
+					totalEvents++
 
 					// Skip if we're filtering by event name and this event is not in the list
 					if c.eventNameSet != nil {
@@ -151,6 +179,7 @@ func (c *Connector) extractLogsFromTraces(traces ptrace.Traces) plog.Logs {
 						}
 					}
 
+					processedEvents++
 					// Create and append the log record to the correct ScopeLogs
 					logRecord := scopeLogs.LogRecords().AppendEmpty()
 					c.populateLogRecord(logRecord, event, span)
@@ -158,6 +187,12 @@ func (c *Connector) extractLogsFromTraces(traces ptrace.Traces) plog.Logs {
 			}
 		}
 	}
+
+	span.SetAttributes(
+		attribute.Int("total_events_found", totalEvents),
+		attribute.Int("events_processed", processedEvents),
+		attribute.Int("logs_created", logs.LogRecordCount()),
+	)
 
 	return logs
 }

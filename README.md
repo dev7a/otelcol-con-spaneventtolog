@@ -116,26 +116,66 @@ Any custom event added to spans can be selectively converted to logs and assigne
 
 ## Development
 
-### Metadata Generation
+### Development Workflow
 
-This component uses the OpenTelemetry Collector's metadata generator (mdatagen) to generate metadata files. To regenerate these files:
+This project follows OpenTelemetry Collector development best practices. All development tasks can be performed using the provided Makefile.
 
-1. **Install the mdatagen tool with the correct version**:
+#### Available Make Targets
+
+```bash
+make build          # Build the connector
+make test           # Run all tests with verbose output
+make test-with-cover # Run tests with coverage report
+make clean          # Clean build artifacts
+make tidy           # Clean up Go modules
+make deps           # Download dependencies
+make generate       # Generate metadata files
+make all            # Default target (build)
+```
+
+#### Development Setup
+
+1. **Clone the repository**:
    ```bash
-   go get go.opentelemetry.io/collector/cmd/mdatagen@v0.119.0
+   git clone https://github.com/dev7a/otelcol-con-spaneventtolog.git
+   cd otelcol-con-spaneventtolog
    ```
 
-2. **Run the generator**:
+2. **Install dependencies**:
    ```bash
-   go run go.opentelemetry.io/collector/cmd/mdatagen ./metadata.yaml
+   cd spaneventtologconnector
+   make deps
    ```
 
-   Or use the Makefile:
+3. **Generate metadata** (if needed):
    ```bash
    make generate
    ```
 
-> **Important**: Make sure to use mdatagen version v0.119.0 to match the OpenTelemetry Collector version used by this component. Using a different version may cause compatibility issues.
+4. **Run tests**:
+   ```bash
+   make test
+   ```
+
+5. **Build the connector**:
+   ```bash
+   make build
+   ```
+
+### Metadata Generation
+
+This component uses the OpenTelemetry Collector's metadata generator (mdatagen) to generate metadata files. The Makefile handles this automatically:
+
+```bash
+cd spaneventtologconnector
+make generate
+```
+
+This command will:
+1. Install the correct version of mdatagen (v0.119.0)
+2. Generate all required metadata files from `metadata.yaml`
+
+> **Important**: Always use the Makefile's `generate` target to ensure version compatibility with the OpenTelemetry Collector version used by this component.
 
 The generated files include:
 - `internal/metadata/generated_status.go`: Component type and stability constants
@@ -145,15 +185,108 @@ The generated files include:
 - `generated_package_test.go`: Package-level tests
 - `documentation.md`: Auto-generated documentation
 
-### Running Tests
+### Testing
 
-To run the tests:
+#### Running Tests
 
 ```bash
+cd spaneventtologconnector
 make test
 ```
 
-This will run all tests, including the generated component tests.
+#### Running Tests with Coverage
+
+```bash
+make test-with-cover
+```
+
+This generates `coverage.out` and `coverage.html` files for detailed coverage analysis.
+
+### Release Process
+
+This project uses automated releases through GitHub Actions. The workflow automatically creates and pushes git tags based on the `VERSION` file.
+
+#### Creating a Release
+
+1. **Create a release branch**:
+   ```bash
+   git checkout -b release/v0.x.y
+   ```
+
+2. **Update the version**:
+   ```bash
+   echo "v0.x.y" > VERSION
+   ```
+
+3. **Update the changelog**:
+   Edit `CHANGELOG.md` to document the changes in the new version.
+
+4. **Run the pre-release workflow**:
+   ```bash
+   cd spaneventtologconnector
+   make generate  # Ensure metadata is up to date
+   make tidy      # Clean up dependencies
+   make test      # Ensure all tests pass
+   make build     # Ensure everything builds
+   ```
+
+5. **Commit changes**:
+   ```bash
+   git add .
+   git commit -m "Release v0.x.y
+
+   - Summary of major changes
+   - List key features/fixes
+   - Note any breaking changes"
+   ```
+
+6. **Push release branch**:
+   ```bash
+   git push origin release/v0.x.y
+   ```
+
+7. **Create Pull Request**:
+   Create a PR from `release/v0.x.y` to `main` for review.
+
+8. **Merge to main**:
+   Once approved, merge the PR to `main`.
+
+9. **Automated tagging**:
+   GitHub Actions will automatically:
+   - Run tests on the latest commit to `main`
+   - Read the version from the `VERSION` file
+   - Create and push a git tag (e.g., `v0.x.y`)
+   - Trigger any additional release workflows
+
+#### Release Workflow
+
+The `.github/workflows/test-and-tag.yml` workflow:
+- ✅ Runs on every push to `main`
+- ✅ Executes all tests
+- ✅ Reads version from `VERSION` file
+- ✅ Creates git tag automatically (if tests pass)
+- ✅ Pushes tag to repository
+
+> **Note**: Manual tagging is not required. The automated workflow handles tag creation and pushing.
+
+### Code Quality
+
+Before submitting changes:
+
+1. **Generate metadata**: `make generate`
+2. **Clean dependencies**: `make tidy`
+3. **Run tests**: `make test`
+4. **Build project**: `make build`
+5. **Check coverage**: `make test-with-cover`
+
+### Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Follow the development workflow above
+4. Submit a pull request
+
+Pull requests trigger the same test workflow to ensure code quality.
 
 ## License
 
