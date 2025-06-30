@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.5.0] - 2025-01-12
+## [0.5.0] - 2025-06-30
 
 ### Added
 - Added comprehensive tracing instrumentation to the connector for observability
