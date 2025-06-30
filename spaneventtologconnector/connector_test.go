@@ -79,7 +79,7 @@ func TestTracingInstrumentationWithError(t *testing.T) {
 	// Consume traces - should return error
 	err := connector.ConsumeTraces(context.Background(), traces)
 	assert.Error(t, err)
-	assert.Equal(t, assert.AnError, err)
+	assert.ErrorIs(t, err, assert.AnError)
 }
 
 // TestTracingInstrumentationNoEvents tests tracing when no events are processed
