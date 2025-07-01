@@ -344,6 +344,19 @@ func TestAttributeMappings(t *testing.T) {
 			expectedSeverityText:   "info",                  // Canonical form
 			hasEventNameAttr:       false,
 		},
+		{
+			name: "Only severity number mapping - text should be derived",
+			config: config.Config{
+				LogAttributesFrom: []string{"event.attributes"},
+				AttributeMappings: config.AttributeMappings{
+					SeverityNumber: "event.severity_number",
+				},
+			},
+			expectedBody:           "backend.db.write_item.success",
+			expectedSeverityNumber: plog.SeverityNumber(9), // From event.severity_number
+			expectedSeverityText:   "info",                 // Derived from number 9 (INFO)
+			hasEventNameAttr:       false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -460,4 +473,30 @@ func createTestTracesWithStructuredEvent() ptrace.Traces {
 	event.Attributes().PutStr("event.severity_text", "INFO")
 
 	return traces
+}
+
+// TestSeverityNumberToText tests the severityNumberToText helper function
+func TestSeverityNumberToText(t *testing.T) {
+	tests := []struct {
+		severityNumber plog.SeverityNumber
+		expectedText   string
+	}{
+		{plog.SeverityNumberTrace, "trace"},
+		{plog.SeverityNumberDebug, "debug"},
+		{plog.SeverityNumberInfo, "info"},
+		{plog.SeverityNumberWarn, "warn"},
+		{plog.SeverityNumberError, "error"},
+		{plog.SeverityNumberFatal, "fatal"},
+		{plog.SeverityNumberInfo2, "info2"},
+		{plog.SeverityNumberError3, "error3"},
+		{plog.SeverityNumberUnspecified, "info"}, // Default case
+		{plog.SeverityNumber(999), "info"},       // Unknown number
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.expectedText, func(t *testing.T) {
+			result := severityNumberToText(tt.severityNumber)
+			assert.Equal(t, tt.expectedText, result)
+		})
+	}
 }

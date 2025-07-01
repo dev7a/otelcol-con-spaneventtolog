@@ -217,6 +217,8 @@ func (c *Connector) populateLogRecord(
 			if attrValue, exists := event.Attributes().Get(c.config.AttributeMappings.SeverityNumber); exists {
 				if attrValue.Type() == pcommon.ValueTypeInt {
 					severityNumber = plog.SeverityNumber(attrValue.Int())
+					// Derive severity text from the mapped number to keep them in sync
+					severityText = severityNumberToText(severityNumber)
 					severityFound = true
 				}
 			}
@@ -409,5 +411,62 @@ func mapSeverity(severity string) (plog.SeverityNumber, string) {
 		return plog.SeverityNumberFatal4, "fatal4"
 	default:
 		return plog.SeverityNumberUnspecified, ""
+	}
+}
+
+// severityNumberToText maps a plog.SeverityNumber to its canonical text representation.
+// Returns "info" as default for unspecified or unknown severity numbers.
+func severityNumberToText(severityNumber plog.SeverityNumber) string {
+	switch severityNumber {
+	case plog.SeverityNumberTrace:
+		return "trace"
+	case plog.SeverityNumberTrace2:
+		return "trace2"
+	case plog.SeverityNumberTrace3:
+		return "trace3"
+	case plog.SeverityNumberTrace4:
+		return "trace4"
+	case plog.SeverityNumberDebug:
+		return "debug"
+	case plog.SeverityNumberDebug2:
+		return "debug2"
+	case plog.SeverityNumberDebug3:
+		return "debug3"
+	case plog.SeverityNumberDebug4:
+		return "debug4"
+	case plog.SeverityNumberInfo:
+		return "info"
+	case plog.SeverityNumberInfo2:
+		return "info2"
+	case plog.SeverityNumberInfo3:
+		return "info3"
+	case plog.SeverityNumberInfo4:
+		return "info4"
+	case plog.SeverityNumberWarn:
+		return "warn"
+	case plog.SeverityNumberWarn2:
+		return "warn2"
+	case plog.SeverityNumberWarn3:
+		return "warn3"
+	case plog.SeverityNumberWarn4:
+		return "warn4"
+	case plog.SeverityNumberError:
+		return "error"
+	case plog.SeverityNumberError2:
+		return "error2"
+	case plog.SeverityNumberError3:
+		return "error3"
+	case plog.SeverityNumberError4:
+		return "error4"
+	case plog.SeverityNumberFatal:
+		return "fatal"
+	case plog.SeverityNumberFatal2:
+		return "fatal2"
+	case plog.SeverityNumberFatal3:
+		return "fatal3"
+	case plog.SeverityNumberFatal4:
+		return "fatal4"
+	default:
+		return "info"
 	}
 }
