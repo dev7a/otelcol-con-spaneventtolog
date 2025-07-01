@@ -147,24 +147,9 @@ func (c *Connector) extractLogsFromTraces(ctx context.Context, traces ptrace.Tra
 		resourceSpans := traces.ResourceSpans().At(i)
 		resource := resourceSpans.Resource()
 
-		// Find or create the ResourceLogs entry for this resource
-		resourceLogs, createdRl := findOrCreateResourceLogs(logs, resource)
-		if createdRl {
-			// Copy resource attributes only if configured and only when ResourceLogs is first created
-			if c.shouldCopyAttributes("resource.attributes") {
-				resource.Attributes().CopyTo(resourceLogs.Resource().Attributes())
-			} else {
-				// Ensure resourceLogs has a resource object, even if empty
-				resourceLogs.Resource().Attributes().Clear()
-			}
-		}
-
 		for j := 0; j < resourceSpans.ScopeSpans().Len(); j++ {
 			scopeSpans := resourceSpans.ScopeSpans().At(j)
 			scope := scopeSpans.Scope()
-
-			// Find or create the ScopeLogs entry for this scope within the current ResourceLogs
-			scopeLogs := findOrCreateScopeLogs(resourceLogs, scope)
 
 			for k := 0; k < scopeSpans.Spans().Len(); k++ {
 				span := scopeSpans.Spans().At(k)
@@ -182,6 +167,22 @@ func (c *Connector) extractLogsFromTraces(ctx context.Context, traces ptrace.Tra
 					}
 
 					processedEvents++
+
+					// LAZY CREATION: Only create ResourceLogs and ScopeLogs when we have an event to process
+					resourceLogs, createdRl := findOrCreateResourceLogs(logs, resource)
+					if createdRl {
+						// Copy resource attributes only if configured and only when ResourceLogs is first created
+						if c.shouldCopyAttributes("resource.attributes") {
+							resource.Attributes().CopyTo(resourceLogs.Resource().Attributes())
+						} else {
+							// Ensure resourceLogs has a resource object, even if empty
+							resourceLogs.Resource().Attributes().Clear()
+						}
+					}
+
+					// Find or create the ScopeLogs entry for this scope within the current ResourceLogs
+					scopeLogs := findOrCreateScopeLogs(resourceLogs, scope)
+
 					// Create and append the log record to the correct ScopeLogs
 					logRecord := scopeLogs.LogRecords().AppendEmpty()
 					c.populateLogRecord(logRecord, event, span)
