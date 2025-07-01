@@ -211,8 +211,34 @@ func (c *Connector) populateLogRecord(
 	severityText := "info"
 	severityFound := false
 
-	// 1. Check SeverityAttribute (Highest Precedence)
-	if c.config.SeverityAttribute != "" {
+	// 1. Check AttributeMappings for severity (Highest Precedence)
+	if c.config.AttributeMappings.SeverityNumber != "" || c.config.AttributeMappings.SeverityText != "" {
+		if c.config.AttributeMappings.SeverityNumber != "" {
+			if attrValue, exists := event.Attributes().Get(c.config.AttributeMappings.SeverityNumber); exists {
+				if attrValue.Type() == pcommon.ValueTypeInt {
+					severityNumber = plog.SeverityNumber(attrValue.Int())
+					severityFound = true
+				}
+			}
+		}
+		if c.config.AttributeMappings.SeverityText != "" {
+			if attrValue, exists := event.Attributes().Get(c.config.AttributeMappings.SeverityText); exists && attrValue.Type() == pcommon.ValueTypeStr {
+				severityText = attrValue.Str()
+				// If we don't have severity number from attribute mapping, try to parse from text
+				if !severityFound {
+					parsedNumber, parsedText := mapSeverity(severityText)
+					if parsedNumber != plog.SeverityNumberUnspecified {
+						severityNumber = parsedNumber
+						severityText = parsedText
+					}
+				}
+				severityFound = true
+			}
+		}
+	}
+
+	// 2. Check SeverityAttribute (High Precedence)
+	if !severityFound && c.config.SeverityAttribute != "" {
 		if attrValue, exists := event.Attributes().Get(c.config.SeverityAttribute); exists && attrValue.Type() == pcommon.ValueTypeStr {
 			parsedNumber, parsedText := mapSeverity(attrValue.Str())
 			if parsedNumber != plog.SeverityNumberUnspecified {
@@ -223,7 +249,7 @@ func (c *Connector) populateLogRecord(
 		}
 	}
 
-	// 2. Check SeverityByEventName (Substring Match, Longest Precedence)
+	// 3. Check SeverityByEventName (Substring Match, Longest Precedence)
 	if !severityFound && len(c.config.SeverityByEventName) > 0 {
 		lowerEventName := strings.ToLower(event.Name())
 		longestMatchKeyLen := 0
@@ -259,12 +285,27 @@ func (c *Connector) populateLogRecord(
 	logRecord.SetSeverityNumber(severityNumber)
 	logRecord.SetSeverityText(severityText)
 
-	// Set body to event name
-	logRecord.Body().SetStr(event.Name())
+	// Set body using attribute mapping or fallback to event name
+	bodySet := false
+	if c.config.AttributeMappings.Body != "" {
+		if attrValue, exists := event.Attributes().Get(c.config.AttributeMappings.Body); exists && attrValue.Type() == pcommon.ValueTypeStr {
+			logRecord.Body().SetStr(attrValue.Str())
+			bodySet = true
+		}
+	}
+	if !bodySet {
+		// Fallback to event name
+		logRecord.Body().SetStr(event.Name())
+	}
 
 	// Copy event attributes if configured
 	if c.shouldCopyAttributes("event.attributes") {
 		event.Attributes().CopyTo(logRecord.Attributes())
+	}
+
+	// Preserve event name as attribute if configured
+	if c.config.AttributeMappings.EventName != "" {
+		logRecord.Attributes().PutStr(c.config.AttributeMappings.EventName, event.Name())
 	}
 
 	// Add level attribute if configured and not already present

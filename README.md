@@ -65,6 +65,11 @@ The following settings are available:
   - This mapping is applied only if `severity_attribute` is not configured or does not yield a valid severity.
   - If no match is found via attribute or substring, the default severity level (Info) will be used.
 - `add_level` (optional, default: `false`): If true, adds a "level" attribute to the log record based on the severity text. This is useful for log systems that expect a "level" field instead of severity. If the event attributes already contain a "level" field, it will not be overwritten.
+- `attribute_mappings` (optional): Configures how span event attributes should be mapped to log record fields. These mappings take **highest precedence** over other configuration options and fall back to existing behavior when the specified attributes don't exist.
+  - `body` (optional): The event attribute name to use for the log record body. If empty or the attribute doesn't exist, falls back to using the event name.
+  - `severity_number` (optional): The event attribute name to use for the log record severity number. Must be an integer value.
+  - `severity_text` (optional): The event attribute name to use for the log record severity text. If `severity_number` is not mapped but `severity_text` is, the system will attempt to parse the text to determine the corresponding severity number.
+  - `event_name` (optional): The log attribute name to store the original event name. If empty, the event name won't be preserved as an attribute.
 
 ### Example Configuration
 
@@ -80,6 +85,11 @@ connectors:
       retry: warning
     severity_attribute: "log.level"
     add_level: true  # Add level attribute based on severity text
+    attribute_mappings:
+      body: "event.body"                    # Use event.body attribute for log body
+      severity_number: "event.severity_number"  # Use event.severity_number for log severity
+      severity_text: "event.severity_text"      # Use event.severity_text for log severity text
+      event_name: "event.name"                  # Preserve original event name as log attribute
 
 receivers:
   otlp:

@@ -30,3 +30,8 @@ tests:
     severity_by_event_name: {exception: error}
     add_level: false
     severity_attribute: # Empty string
+    attribute_mappings:
+      body: "event.body"
+      severity_number: "event.severity_number"
+      severity_text: "event.severity_text"
+      event_name: "event.name"
