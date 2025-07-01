@@ -22,6 +22,34 @@ import (
 	"github.com/dev7a/otelcol-con-spaneventtolog/spaneventtologconnector/config"
 )
 
+// severityToTextMap is a lookup table for converting severity numbers to text.
+var severityToTextMap = map[plog.SeverityNumber]string{
+	plog.SeverityNumberTrace:  "trace",
+	plog.SeverityNumberTrace2: "trace2",
+	plog.SeverityNumberTrace3: "trace3",
+	plog.SeverityNumberTrace4: "trace4",
+	plog.SeverityNumberDebug:  "debug",
+	plog.SeverityNumberDebug2: "debug2",
+	plog.SeverityNumberDebug3: "debug3",
+	plog.SeverityNumberDebug4: "debug4",
+	plog.SeverityNumberInfo:   "info",
+	plog.SeverityNumberInfo2:  "info2",
+	plog.SeverityNumberInfo3:  "info3",
+	plog.SeverityNumberInfo4:  "info4",
+	plog.SeverityNumberWarn:   "warn",
+	plog.SeverityNumberWarn2:  "warn2",
+	plog.SeverityNumberWarn3:  "warn3",
+	plog.SeverityNumberWarn4:  "warn4",
+	plog.SeverityNumberError:  "error",
+	plog.SeverityNumberError2: "error2",
+	plog.SeverityNumberError3: "error3",
+	plog.SeverityNumberError4: "error4",
+	plog.SeverityNumberFatal:  "fatal",
+	plog.SeverityNumberFatal2: "fatal2",
+	plog.SeverityNumberFatal3: "fatal3",
+	plog.SeverityNumberFatal4: "fatal4",
+}
+
 // Connector is a span event to log connector.
 type Connector struct {
 	config       config.Config
@@ -211,8 +239,36 @@ func (c *Connector) populateLogRecord(
 	severityText := "info"
 	severityFound := false
 
-	// 1. Check SeverityAttribute (Highest Precedence)
-	if c.config.SeverityAttribute != "" {
+	// 1. Check AttributeMappings for severity (Highest Precedence)
+	if c.config.AttributeMappings.SeverityNumber != "" || c.config.AttributeMappings.SeverityText != "" {
+		if c.config.AttributeMappings.SeverityNumber != "" {
+			if attrValue, exists := event.Attributes().Get(c.config.AttributeMappings.SeverityNumber); exists {
+				if attrValue.Type() == pcommon.ValueTypeInt {
+					severityNumber = plog.SeverityNumber(attrValue.Int())
+					// Derive severity text from the mapped number to keep them in sync
+					severityText = severityNumberToText(severityNumber)
+					severityFound = true
+				}
+			}
+		}
+		if c.config.AttributeMappings.SeverityText != "" {
+			if attrValue, exists := event.Attributes().Get(c.config.AttributeMappings.SeverityText); exists && attrValue.Type() == pcommon.ValueTypeStr {
+				severityText = attrValue.Str()
+				// If we don't have severity number from attribute mapping, try to parse from text
+				if !severityFound {
+					parsedNumber, parsedText := mapSeverity(severityText)
+					if parsedNumber != plog.SeverityNumberUnspecified {
+						severityNumber = parsedNumber
+						severityText = parsedText
+					}
+				}
+				severityFound = true
+			}
+		}
+	}
+
+	// 2. Check SeverityAttribute (High Precedence)
+	if !severityFound && c.config.SeverityAttribute != "" {
 		if attrValue, exists := event.Attributes().Get(c.config.SeverityAttribute); exists && attrValue.Type() == pcommon.ValueTypeStr {
 			parsedNumber, parsedText := mapSeverity(attrValue.Str())
 			if parsedNumber != plog.SeverityNumberUnspecified {
@@ -223,7 +279,7 @@ func (c *Connector) populateLogRecord(
 		}
 	}
 
-	// 2. Check SeverityByEventName (Substring Match, Longest Precedence)
+	// 3. Check SeverityByEventName (Substring Match, Longest Precedence)
 	if !severityFound && len(c.config.SeverityByEventName) > 0 {
 		lowerEventName := strings.ToLower(event.Name())
 		longestMatchKeyLen := 0
@@ -259,12 +315,27 @@ func (c *Connector) populateLogRecord(
 	logRecord.SetSeverityNumber(severityNumber)
 	logRecord.SetSeverityText(severityText)
 
-	// Set body to event name
-	logRecord.Body().SetStr(event.Name())
+	// Set body using attribute mapping or fallback to event name
+	bodySet := false
+	if c.config.AttributeMappings.Body != "" {
+		if attrValue, exists := event.Attributes().Get(c.config.AttributeMappings.Body); exists && attrValue.Type() == pcommon.ValueTypeStr {
+			logRecord.Body().SetStr(attrValue.Str())
+			bodySet = true
+		}
+	}
+	if !bodySet {
+		// Fallback to event name
+		logRecord.Body().SetStr(event.Name())
+	}
 
 	// Copy event attributes if configured
 	if c.shouldCopyAttributes("event.attributes") {
 		event.Attributes().CopyTo(logRecord.Attributes())
+	}
+
+	// Preserve event name as attribute if configured
+	if c.config.AttributeMappings.EventName != "" {
+		logRecord.Attributes().PutStr(c.config.AttributeMappings.EventName, event.Name())
 	}
 
 	// Add level attribute if configured and not already present
@@ -369,4 +440,13 @@ func mapSeverity(severity string) (plog.SeverityNumber, string) {
 	default:
 		return plog.SeverityNumberUnspecified, ""
 	}
+}
+
+// severityNumberToText maps a plog.SeverityNumber to its canonical text representation.
+// Returns "info" as default for unspecified or unknown severity numbers.
+func severityNumberToText(severityNumber plog.SeverityNumber) string {
+	if text, exists := severityToTextMap[severityNumber]; exists {
+		return text
+	}
+	return "info"
 }
