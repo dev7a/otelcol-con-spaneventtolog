@@ -22,6 +22,34 @@ import (
 	"github.com/dev7a/otelcol-con-spaneventtolog/spaneventtologconnector/config"
 )
 
+// severityToTextMap is a lookup table for converting severity numbers to text.
+var severityToTextMap = map[plog.SeverityNumber]string{
+	plog.SeverityNumberTrace:  "trace",
+	plog.SeverityNumberTrace2: "trace2",
+	plog.SeverityNumberTrace3: "trace3",
+	plog.SeverityNumberTrace4: "trace4",
+	plog.SeverityNumberDebug:  "debug",
+	plog.SeverityNumberDebug2: "debug2",
+	plog.SeverityNumberDebug3: "debug3",
+	plog.SeverityNumberDebug4: "debug4",
+	plog.SeverityNumberInfo:   "info",
+	plog.SeverityNumberInfo2:  "info2",
+	plog.SeverityNumberInfo3:  "info3",
+	plog.SeverityNumberInfo4:  "info4",
+	plog.SeverityNumberWarn:   "warn",
+	plog.SeverityNumberWarn2:  "warn2",
+	plog.SeverityNumberWarn3:  "warn3",
+	plog.SeverityNumberWarn4:  "warn4",
+	plog.SeverityNumberError:  "error",
+	plog.SeverityNumberError2: "error2",
+	plog.SeverityNumberError3: "error3",
+	plog.SeverityNumberError4: "error4",
+	plog.SeverityNumberFatal:  "fatal",
+	plog.SeverityNumberFatal2: "fatal2",
+	plog.SeverityNumberFatal3: "fatal3",
+	plog.SeverityNumberFatal4: "fatal4",
+}
+
 // Connector is a span event to log connector.
 type Connector struct {
 	config       config.Config
@@ -417,56 +445,8 @@ func mapSeverity(severity string) (plog.SeverityNumber, string) {
 // severityNumberToText maps a plog.SeverityNumber to its canonical text representation.
 // Returns "info" as default for unspecified or unknown severity numbers.
 func severityNumberToText(severityNumber plog.SeverityNumber) string {
-	switch severityNumber {
-	case plog.SeverityNumberTrace:
-		return "trace"
-	case plog.SeverityNumberTrace2:
-		return "trace2"
-	case plog.SeverityNumberTrace3:
-		return "trace3"
-	case plog.SeverityNumberTrace4:
-		return "trace4"
-	case plog.SeverityNumberDebug:
-		return "debug"
-	case plog.SeverityNumberDebug2:
-		return "debug2"
-	case plog.SeverityNumberDebug3:
-		return "debug3"
-	case plog.SeverityNumberDebug4:
-		return "debug4"
-	case plog.SeverityNumberInfo:
-		return "info"
-	case plog.SeverityNumberInfo2:
-		return "info2"
-	case plog.SeverityNumberInfo3:
-		return "info3"
-	case plog.SeverityNumberInfo4:
-		return "info4"
-	case plog.SeverityNumberWarn:
-		return "warn"
-	case plog.SeverityNumberWarn2:
-		return "warn2"
-	case plog.SeverityNumberWarn3:
-		return "warn3"
-	case plog.SeverityNumberWarn4:
-		return "warn4"
-	case plog.SeverityNumberError:
-		return "error"
-	case plog.SeverityNumberError2:
-		return "error2"
-	case plog.SeverityNumberError3:
-		return "error3"
-	case plog.SeverityNumberError4:
-		return "error4"
-	case plog.SeverityNumberFatal:
-		return "fatal"
-	case plog.SeverityNumberFatal2:
-		return "fatal2"
-	case plog.SeverityNumberFatal3:
-		return "fatal3"
-	case plog.SeverityNumberFatal4:
-		return "fatal4"
-	default:
-		return "info"
+	if text, exists := severityToTextMap[severityNumber]; exists {
+		return text
 	}
+	return "info"
 }
