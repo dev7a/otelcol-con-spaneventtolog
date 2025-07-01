@@ -7,6 +7,25 @@ import (
 	"fmt"
 )
 
+// AttributeMappings defines how span event attributes should be mapped to log record fields.
+type AttributeMappings struct {
+	// Body specifies the event attribute name to use for the log record body.
+	// If empty or the attribute doesn't exist, falls back to using the event name.
+	Body string `mapstructure:"body"`
+
+	// SeverityNumber specifies the event attribute name to use for the log record severity number.
+	// If empty or the attribute doesn't exist, falls back to existing severity configuration.
+	SeverityNumber string `mapstructure:"severity_number"`
+
+	// SeverityText specifies the event attribute name to use for the log record severity text.
+	// If empty or the attribute doesn't exist, falls back to existing severity configuration.
+	SeverityText string `mapstructure:"severity_text"`
+
+	// EventName specifies the log attribute name to store the original event name.
+	// If empty, the event name won't be preserved as an attribute.
+	EventName string `mapstructure:"event_name"`
+}
+
 // Config defines configuration for the span event to log connector.
 type Config struct {
 	// IncludeEventNames is the list of event names to include in the conversion from events to logs.
@@ -41,6 +60,11 @@ type Config struct {
 	// If set, this takes precedence over SeverityByEventName. The attribute value must be a string
 	// matching one of the supported severity levels (case-insensitive).
 	SeverityAttribute string `mapstructure:"severity_attribute"`
+
+	// AttributeMappings defines how span event attributes should be mapped to log record fields.
+	// These mappings take precedence over other configuration options and fall back to existing
+	// behavior when the specified attributes don't exist.
+	AttributeMappings AttributeMappings `mapstructure:"attribute_mappings"`
 
 	// prevent unkeyed literal initialization
 	_ struct{}

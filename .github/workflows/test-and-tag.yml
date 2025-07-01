@@ -6,6 +6,21 @@ on:
   pull_request:
     branches: [ main ]
     types: [opened, synchronize, labeled]
+  workflow_dispatch:
+    inputs:
+      tag_type:
+        description: 'Type of release'
+        required: true
+        default: 'beta'
+        type: choice
+        options:
+        - beta
+        - rc
+        - dev
+      tag_suffix:
+        description: 'Tag suffix (e.g., "feature-x", "rc1")'
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -42,13 +57,55 @@ jobs:
       id: get_version
       run: echo "VERSION=$(cat VERSION)" >> $GITHUB_OUTPUT
 
+    - name: Determine tag type and version
+      id: tag_info
+      run: |
+        BASE_VERSION=${{ steps.get_version.outputs.VERSION }}
+        
+        if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          # Manual trigger
+          TAG_TYPE="${{ github.event.inputs.tag_type }}"
+          if [[ -n "${{ github.event.inputs.tag_suffix }}" ]]; then
+            TAG="$BASE_VERSION-$TAG_TYPE-${{ github.event.inputs.tag_suffix }}"
+          else
+            TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+            TAG="$BASE_VERSION-$TAG_TYPE-$TIMESTAMP"
+          fi
+        elif [[ "${{ github.event_name }}" == "push" && "${GITHUB_REF#refs/heads/}" == "main" ]]; then
+          # Production release from main
+          TAG="$BASE_VERSION"
+          TAG_TYPE="release"
+        elif [[ "${{ github.event_name }}" == "pull_request" && "${{ github.event.action }}" == "opened" ]]; then
+          # PR opened - check if it's from a beta/rc/preview branch
+          PR_BRANCH="${{ github.head_ref }}"
+          if [[ "$PR_BRANCH" =~ ^(beta|preview|rc)/ ]]; then
+            # Extract the branch type and meaningful suffix using external Python script
+            TAG_INFO=$(python3 .github/workflows/scripts/generate_tag.py "$PR_BRANCH" "$BASE_VERSION")
+            TAG=$(echo "$TAG_INFO" | cut -d'|' -f1)
+            TAG_TYPE=$(echo "$TAG_INFO" | cut -d'|' -f2)
+          else
+            TAG=""
+            TAG_TYPE="none"
+          fi
+        else
+          TAG=""
+          TAG_TYPE="none"
+        fi
+        
+        echo "TAG=$TAG" >> $GITHUB_OUTPUT
+        echo "TAG_TYPE=$TAG_TYPE" >> $GITHUB_OUTPUT
+        echo "Determined tag: $TAG (type: $TAG_TYPE)"
+        echo "Event: ${{ github.event_name }}, Action: ${{ github.event.action }}"
+        echo "Head ref: ${{ github.head_ref }}"
+
     - name: Create and push git tag
-      if: github.event_name == 'push' && github.ref == 'refs/heads/main' && success()
+      if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.action == 'opened')) && steps.tag_info.outputs.TAG != '' && success()
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        VERSION=${{ steps.get_version.outputs.VERSION }}
-        TAG="$VERSION"
+        TAG=${{ steps.tag_info.outputs.TAG }}
+        TAG_TYPE=${{ steps.tag_info.outputs.TAG_TYPE }}
+        
         if git rev-parse "$TAG" >/dev/null 2>&1; then
           echo "Tag $TAG already exists. Skipping tag creation."
         else
@@ -56,4 +113,5 @@ jobs:
           git config user.email "actions@github.com"
           git tag "$TAG"
           git push origin "$TAG"
+          echo "Created and pushed $TAG_TYPE tag: $TAG"
         fi

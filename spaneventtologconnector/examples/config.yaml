@@ -15,6 +15,11 @@ connectors:
       exception: error
       retry: warning
     add_level: true  # Add level attribute based on severity text
+    attribute_mappings:
+      body: "event.body"                    # Use event.body attribute for log body
+      severity_number: "event.severity_number"  # Use event.severity_number for log severity
+      severity_text: "event.severity_text"      # Use event.severity_text for log severity text
+      event_name: "event.name"                  # Preserve original event name as log attribute
 
 service:
   pipelines:
