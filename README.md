@@ -7,6 +7,8 @@ This project enables unified telemetry ingestion by bridging trace events with l
 
 - Converts span events to structured log records
 - Flexible configuration for filtering, severity mapping, and context enrichment
+- **Configurable attribute mappings** for mapping event attributes to log fields
+- **Beta release support** for testing new features before production
 - Designed for use as an external collector component
 
 ## Motivation: Bridging Traces and Logs for Simplified Instrumentation
@@ -209,24 +211,25 @@ This generates `coverage.out` and `coverage.html` files for detailed coverage an
 
 ### Release Process
 
-This project uses automated releases through GitHub Actions. The workflow automatically creates and pushes git tags based on the `VERSION` file.
+This project uses automated releases through GitHub Actions with support for beta releases and controlled tagging.
 
-#### Creating a Release
+#### Beta Releases (for testing new features)
 
-1. **Create a release branch**:
+1. **Create a beta branch**:
    ```bash
-   git checkout -b release/v0.x.y
+   git checkout -b beta/v0.x.y-feature-name
+   # or
+   git checkout -b rc/v0.x.y
+   # or  
+   git checkout -b preview/v0.x.y-feature-name
    ```
 
-2. **Update the version**:
+2. **Update the version** (if needed):
    ```bash
    echo "v0.x.y" > VERSION
    ```
 
-3. **Update the changelog**:
-   Edit `CHANGELOG.md` to document the changes in the new version.
-
-4. **Run the pre-release workflow**:
+3. **Develop and test your changes**:
    ```bash
    cd spaneventtologconnector
    make generate  # Ensure metadata is up to date
@@ -235,44 +238,60 @@ This project uses automated releases through GitHub Actions. The workflow automa
    make build     # Ensure everything builds
    ```
 
-5. **Commit changes**:
+4. **Push your beta branch**:
    ```bash
-   git add .
-   git commit -m "Release v0.x.y
-
-   - Summary of major changes
-   - List key features/fixes
-   - Note any breaking changes"
+   git push origin beta/v0.x.y-feature-name
+   # ❌ No tags created yet - just pushes the branch
    ```
 
-6. **Push release branch**:
+5. **Create a Pull Request**:
    ```bash
-   git push origin release/v0.x.y
+   gh pr create --title "Add new feature" --body "Description of changes"
+   # ✅ Beta tag automatically created: v0.x.y-beta-v0.x.y-feature-name
    ```
 
-7. **Create Pull Request**:
-   Create a PR from `release/v0.x.y` to `main` for review.
+6. **Test the beta release**:
+   ```bash
+   go get github.com/dev7a/otelcol-con-spaneventtolog@v0.x.y-beta-v0.x.y-feature-name
+   ```
 
-8. **Merge to main**:
-   Once approved, merge the PR to `main`.
+#### Production Releases
 
-9. **Automated tagging**:
+1. **Review and merge the PR**:
+   Once the beta is tested and approved, merge the PR to `main`.
+
+2. **Automated production tagging**:
    GitHub Actions will automatically:
-   - Run tests on the latest commit to `main`
+   - Run tests on the merged commit to `main`
    - Read the version from the `VERSION` file
-   - Create and push a git tag (e.g., `v0.x.y`)
-   - Trigger any additional release workflows
+   - Create and push a production git tag (e.g., `v0.x.y`)
+
+#### Manual Releases (advanced)
+
+For custom releases, you can trigger the workflow manually:
+
+1. Go to **Actions** tab in GitHub
+2. Select **"Test and Tag"** workflow  
+3. Click **"Run workflow"**
+4. Choose tag type (`beta`, `rc`, `dev`) and optional suffix
 
 #### Release Workflow
 
-The `.github/workflows/test-and-tag.yml` workflow:
-- ✅ Runs on every push to `main`
-- ✅ Executes all tests
-- ✅ Reads version from `VERSION` file
-- ✅ Creates git tag automatically (if tests pass)
-- ✅ Pushes tag to repository
+The `.github/workflows/test-and-tag.yml` workflow supports:
+- ✅ **Beta tags**: Created when PR is opened from `beta/*`, `rc/*`, or `preview/*` branches
+- ✅ **Production tags**: Created when changes are merged to `main`
+- ✅ **Manual tags**: Created via workflow dispatch
+- ✅ **Controlled tagging**: No tags created for experimental pushes
 
-> **Note**: Manual tagging is not required. The automated workflow handles tag creation and pushing.
+#### Tag Naming Convention
+
+- **Production**: `v0.6.0`
+- **Beta**: `v0.6.0-beta-v0.x.y-feature-name`
+- **Release Candidate**: `v0.6.0-rc-v0.x.y`
+- **Preview**: `v0.6.0-preview-v0.x.y-feature-name`
+- **Manual**: `v0.6.0-{type}-{suffix}`
+
+> **Note**: Tags are only created when opening PRs or merging to main - not for every push. This prevents tag spam during development.
 
 ### Code Quality
 
