@@ -2,7 +2,7 @@ name: Test and Tag
 
 on:
   push:
-    branches: [ main, 'beta/**', 'rc/**', 'preview/**' ]
+    branches: [ main ]
   pull_request:
     branches: [ main ]
     types: [opened, synchronize, labeled]
@@ -61,7 +61,6 @@ jobs:
       id: tag_info
       run: |
         BASE_VERSION=${{ steps.get_version.outputs.VERSION }}
-        BRANCH_NAME=${GITHUB_REF#refs/heads/}
         
         if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
           # Manual trigger
@@ -72,21 +71,21 @@ jobs:
             TIMESTAMP=$(date +%Y%m%d-%H%M%S)
             TAG="$BASE_VERSION-$TAG_TYPE-$TIMESTAMP"
           fi
-        elif [[ "$BRANCH_NAME" == "main" ]]; then
-          # Production release
+        elif [[ "${{ github.event_name }}" == "push" && "${GITHUB_REF#refs/heads/}" == "main" ]]; then
+          # Production release from main
           TAG="$BASE_VERSION"
           TAG_TYPE="release"
-        elif [[ "$BRANCH_NAME" =~ ^(beta|preview|rc)/ ]]; then
-          # Beta release from beta/* branch
-          BETA_SUFFIX=$(echo "$BRANCH_NAME" | sed 's/\//-/g')
-          TAG="$BASE_VERSION-$BETA_SUFFIX"
-          TAG_TYPE="beta"
-        elif [[ "${{ github.event_name }}" == "push" && "$BRANCH_NAME" != "main" ]]; then
-          # Development release from any other branch
-          BRANCH_CLEAN=$(echo "$BRANCH_NAME" | sed 's/[^a-zA-Z0-9.-]/-/g' | sed 's/--*/-/g')
-          SHORT_SHA=${GITHUB_SHA:0:7}
-          TAG="$BASE_VERSION-dev-$BRANCH_CLEAN-$SHORT_SHA"
-          TAG_TYPE="dev"
+        elif [[ "${{ github.event_name }}" == "pull_request" && "${{ github.event.action }}" == "opened" ]]; then
+          # PR opened - check if it's from a beta/rc/preview branch
+          PR_BRANCH="${{ github.head_ref }}"
+          if [[ "$PR_BRANCH" =~ ^(beta|preview|rc)/ ]]; then
+            BETA_SUFFIX=$(echo "$PR_BRANCH" | sed 's/\//-/g')
+            TAG="$BASE_VERSION-$BETA_SUFFIX"
+            TAG_TYPE="beta"
+          else
+            TAG=""
+            TAG_TYPE="none"
+          fi
         else
           TAG=""
           TAG_TYPE="none"
@@ -95,9 +94,11 @@ jobs:
         echo "TAG=$TAG" >> $GITHUB_OUTPUT
         echo "TAG_TYPE=$TAG_TYPE" >> $GITHUB_OUTPUT
         echo "Determined tag: $TAG (type: $TAG_TYPE)"
+        echo "Event: ${{ github.event_name }}, Action: ${{ github.event.action }}"
+        echo "Head ref: ${{ github.head_ref }}"
 
     - name: Create and push git tag
-      if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && steps.tag_info.outputs.TAG != '' && success()
+      if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.action == 'opened')) && steps.tag_info.outputs.TAG != '' && success()
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
