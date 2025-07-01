@@ -500,3 +500,62 @@ func TestSeverityNumberToText(t *testing.T) {
 		})
 	}
 }
+
+// TestMapSeverity tests the mapSeverity function comprehensively
+func TestMapSeverity(t *testing.T) {
+	tests := []struct {
+		input          string
+		expectedNumber plog.SeverityNumber
+		expectedText   string
+	}{
+		// Basic levels
+		{"trace", plog.SeverityNumberTrace, "trace"},
+		{"debug", plog.SeverityNumberDebug, "debug"},
+		{"info", plog.SeverityNumberInfo, "info"},
+		{"warn", plog.SeverityNumberWarn, "warn"},
+		{"error", plog.SeverityNumberError, "error"},
+		{"fatal", plog.SeverityNumberFatal, "fatal"},
+
+		// Numbered variants
+		{"trace1", plog.SeverityNumberTrace, "trace"},
+		{"debug1", plog.SeverityNumberDebug, "debug"},
+		{"info1", plog.SeverityNumberInfo, "info"},
+		{"warn1", plog.SeverityNumberWarn, "warn"},
+		{"error1", plog.SeverityNumberError, "error"},
+		{"fatal1", plog.SeverityNumberFatal, "fatal"},
+
+		{"trace2", plog.SeverityNumberTrace2, "trace2"},
+		{"debug2", plog.SeverityNumberDebug2, "debug2"},
+		{"info2", plog.SeverityNumberInfo2, "info2"},
+		{"warn2", plog.SeverityNumberWarn2, "warn2"},
+		{"error2", plog.SeverityNumberError2, "error2"},
+		{"fatal2", plog.SeverityNumberFatal2, "fatal2"},
+
+		// Case insensitive
+		{"TRACE", plog.SeverityNumberTrace, "trace"},
+		{"DEBUG", plog.SeverityNumberDebug, "debug"},
+		{"INFO", plog.SeverityNumberInfo, "info"},
+		{"WARN", plog.SeverityNumberWarn, "warn"},
+		{"ERROR", plog.SeverityNumberError, "error"},
+		{"FATAL", plog.SeverityNumberFatal, "fatal"},
+
+		// Aliases
+		{"warning", plog.SeverityNumberWarn, "warn"},
+		{"err", plog.SeverityNumberError, "error"},
+		{"warning2", plog.SeverityNumberWarn2, "warn2"},
+		{"warning3", plog.SeverityNumberWarn3, "warn3"},
+
+		// Invalid cases
+		{"invalid", plog.SeverityNumberUnspecified, ""},
+		{"", plog.SeverityNumberUnspecified, ""},
+		{"unknown", plog.SeverityNumberUnspecified, ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			number, text := mapSeverity(tt.input)
+			assert.Equal(t, tt.expectedNumber, number, "Severity number mismatch for input: %s", tt.input)
+			assert.Equal(t, tt.expectedText, text, "Severity text mismatch for input: %s", tt.input)
+		})
+	}
+}

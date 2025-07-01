@@ -22,33 +22,62 @@ import (
 	"github.com/dev7a/otelcol-con-spaneventtolog/spaneventtologconnector/config"
 )
 
-// severityToTextMap is a lookup table for converting severity numbers to text.
-var severityToTextMap = map[plog.SeverityNumber]string{
-	plog.SeverityNumberTrace:  "trace",
-	plog.SeverityNumberTrace2: "trace2",
-	plog.SeverityNumberTrace3: "trace3",
-	plog.SeverityNumberTrace4: "trace4",
-	plog.SeverityNumberDebug:  "debug",
-	plog.SeverityNumberDebug2: "debug2",
-	plog.SeverityNumberDebug3: "debug3",
-	plog.SeverityNumberDebug4: "debug4",
-	plog.SeverityNumberInfo:   "info",
-	plog.SeverityNumberInfo2:  "info2",
-	plog.SeverityNumberInfo3:  "info3",
-	plog.SeverityNumberInfo4:  "info4",
-	plog.SeverityNumberWarn:   "warn",
-	plog.SeverityNumberWarn2:  "warn2",
-	plog.SeverityNumberWarn3:  "warn3",
-	plog.SeverityNumberWarn4:  "warn4",
-	plog.SeverityNumberError:  "error",
-	plog.SeverityNumberError2: "error2",
-	plog.SeverityNumberError3: "error3",
-	plog.SeverityNumberError4: "error4",
-	plog.SeverityNumberFatal:  "fatal",
-	plog.SeverityNumberFatal2: "fatal2",
-	plog.SeverityNumberFatal3: "fatal3",
-	plog.SeverityNumberFatal4: "fatal4",
+// severityMappings defines the canonical mapping between severity numbers and text.
+// This serves as the single source of truth for severity conversions.
+var severityMappings = []struct {
+	number plog.SeverityNumber
+	text   string
+}{
+	{plog.SeverityNumberTrace, "trace"},
+	{plog.SeverityNumberTrace2, "trace2"},
+	{plog.SeverityNumberTrace3, "trace3"},
+	{plog.SeverityNumberTrace4, "trace4"},
+	{plog.SeverityNumberDebug, "debug"},
+	{plog.SeverityNumberDebug2, "debug2"},
+	{plog.SeverityNumberDebug3, "debug3"},
+	{plog.SeverityNumberDebug4, "debug4"},
+	{plog.SeverityNumberInfo, "info"},
+	{plog.SeverityNumberInfo2, "info2"},
+	{plog.SeverityNumberInfo3, "info3"},
+	{plog.SeverityNumberInfo4, "info4"},
+	{plog.SeverityNumberWarn, "warn"},
+	{plog.SeverityNumberWarn2, "warn2"},
+	{plog.SeverityNumberWarn3, "warn3"},
+	{plog.SeverityNumberWarn4, "warn4"},
+	{plog.SeverityNumberError, "error"},
+	{plog.SeverityNumberError2, "error2"},
+	{plog.SeverityNumberError3, "error3"},
+	{plog.SeverityNumberError4, "error4"},
+	{plog.SeverityNumberFatal, "fatal"},
+	{plog.SeverityNumberFatal2, "fatal2"},
+	{plog.SeverityNumberFatal3, "fatal3"},
+	{plog.SeverityNumberFatal4, "fatal4"},
 }
+
+// severityToTextMap is generated from severityMappings for fast lookups.
+var severityToTextMap = func() map[plog.SeverityNumber]string {
+	m := make(map[plog.SeverityNumber]string, len(severityMappings))
+	for _, mapping := range severityMappings {
+		m[mapping.number] = mapping.text
+	}
+	return m
+}()
+
+// textToSeverityMap is generated from severityMappings for reverse lookups.
+var textToSeverityMap = func() map[string]plog.SeverityNumber {
+	m := make(map[string]plog.SeverityNumber, len(severityMappings))
+	for _, mapping := range severityMappings {
+		m[mapping.text] = mapping.number
+		// Add common aliases
+		switch mapping.text {
+		case "warn":
+			m["warning"] = mapping.number
+		case "error":
+			m["err"] = mapping.number
+		}
+	}
+	return m
+}()
 
 // Connector is a span event to log connector.
 type Connector struct {
@@ -388,58 +417,30 @@ func (c *Connector) shouldCopyAttributes(source string) bool {
 // Returns SeverityNumberUnspecified and an empty string if the input is not a valid severity.
 func mapSeverity(severity string) (plog.SeverityNumber, string) {
 	lowerSeverity := strings.ToLower(severity)
-	switch lowerSeverity {
-	case "trace", "trace1":
-		return plog.SeverityNumberTrace, "trace"
-	case "trace2":
-		return plog.SeverityNumberTrace2, "trace2"
-	case "trace3":
-		return plog.SeverityNumberTrace3, "trace3"
-	case "trace4":
-		return plog.SeverityNumberTrace4, "trace4"
-	case "debug", "debug1":
-		return plog.SeverityNumberDebug, "debug"
-	case "debug2":
-		return plog.SeverityNumberDebug2, "debug2"
-	case "debug3":
-		return plog.SeverityNumberDebug3, "debug3"
-	case "debug4":
-		return plog.SeverityNumberDebug4, "debug4"
-	case "info", "info1":
-		return plog.SeverityNumberInfo, "info"
-	case "info2":
-		return plog.SeverityNumberInfo2, "info2"
-	case "info3":
-		return plog.SeverityNumberInfo3, "info3"
-	case "info4":
-		return plog.SeverityNumberInfo4, "info4"
-	case "warn", "warning", "warn1":
-		return plog.SeverityNumberWarn, "warn"
-	case "warn2", "warning2":
-		return plog.SeverityNumberWarn2, "warn2"
-	case "warn3", "warning3":
-		return plog.SeverityNumberWarn3, "warn3"
-	case "warn4", "warning4":
-		return plog.SeverityNumberWarn4, "warn4"
-	case "error", "err", "error1":
-		return plog.SeverityNumberError, "error"
-	case "error2":
-		return plog.SeverityNumberError2, "error2"
-	case "error3":
-		return plog.SeverityNumberError3, "error3"
-	case "error4":
-		return plog.SeverityNumberError4, "error4"
-	case "fatal", "fatal1":
-		return plog.SeverityNumberFatal, "fatal"
-	case "fatal2":
-		return plog.SeverityNumberFatal2, "fatal2"
-	case "fatal3":
-		return plog.SeverityNumberFatal3, "fatal3"
-	case "fatal4":
-		return plog.SeverityNumberFatal4, "fatal4"
-	default:
-		return plog.SeverityNumberUnspecified, ""
+
+	// Handle direct mappings and aliases
+	if severityNumber, exists := textToSeverityMap[lowerSeverity]; exists {
+		return severityNumber, severityToTextMap[severityNumber]
 	}
+
+	// Handle numbered variants (e.g., "trace1", "debug1", "warning2")
+	if strings.HasSuffix(lowerSeverity, "1") {
+		baseText := strings.TrimSuffix(lowerSeverity, "1")
+		if severityNumber, exists := textToSeverityMap[baseText]; exists {
+			return severityNumber, severityToTextMap[severityNumber]
+		}
+	}
+
+	// Handle numbered warning variants (e.g., "warning2", "warning3")
+	if strings.HasPrefix(lowerSeverity, "warning") && len(lowerSeverity) > 7 {
+		numberSuffix := lowerSeverity[7:] // Extract number after "warning"
+		warnVariant := "warn" + numberSuffix
+		if severityNumber, exists := textToSeverityMap[warnVariant]; exists {
+			return severityNumber, severityToTextMap[severityNumber]
+		}
+	}
+
+	return plog.SeverityNumberUnspecified, ""
 }
 
 // severityNumberToText maps a plog.SeverityNumber to its canonical text representation.
