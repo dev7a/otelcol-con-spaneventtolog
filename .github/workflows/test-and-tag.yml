@@ -79,9 +79,20 @@ jobs:
           # PR opened - check if it's from a beta/rc/preview branch
           PR_BRANCH="${{ github.head_ref }}"
           if [[ "$PR_BRANCH" =~ ^(beta|preview|rc)/ ]]; then
-            BETA_SUFFIX=$(echo "$PR_BRANCH" | sed 's/\//-/g')
-            TAG="$BASE_VERSION-$BETA_SUFFIX"
-            TAG_TYPE="beta"
+            # Extract the branch type and meaningful suffix using Python
+            TAG_INFO=$(python3 -c "
+            import re
+            branch = '$PR_BRANCH'
+            base_version = '$BASE_VERSION'
+            parts = branch.split('/')
+            branch_type = parts[0]
+            full_suffix = parts[1] if len(parts) > 1 else ''
+            feature_name = re.sub(r'^v\d+\.\d+\.\d+-', '', full_suffix)
+            tag = f'{base_version}-{branch_type}-{feature_name}'
+            print(f'{tag}|{branch_type}')
+            ")
+            TAG=$(echo "$TAG_INFO" | cut -d'|' -f1)
+            TAG_TYPE=$(echo "$TAG_INFO" | cut -d'|' -f2)
           else
             TAG=""
             TAG_TYPE="none"
