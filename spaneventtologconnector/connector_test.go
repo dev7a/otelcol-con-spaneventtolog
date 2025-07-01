@@ -233,3 +233,29 @@ func createTestConnectorSettings(t *testing.T) connector.Settings {
 		BuildInfo:         component.NewDefaultBuildInfo(),
 	}
 }
+
+// TestNoEmptyLogsWhenNoMatchingEvents tests that no logs are created when no events match the filter criteria
+func TestNoEmptyLogsWhenNoMatchingEvents(t *testing.T) {
+	// Create test traces with span events that won't match our filter
+	traces := createTestTraces()
+
+	// Create a sink to capture the logs
+	logsSink := new(consumertest.LogsSink)
+
+	// Create connector with event name filtering that won't match any events
+	cfg := &config.Config{
+		IncludeEventNames: []string{"nonexistent_event"}, // This won't match any events in our test data
+	}
+	settings := createTestConnectorSettings(t)
+	connector := newConnector(settings, *cfg, logsSink)
+
+	// Consume traces
+	err := connector.ConsumeTraces(context.Background(), traces)
+
+	// Should not return an error
+	assert.NoError(t, err)
+
+	// Verify that no logs were created or sent to consumer
+	assert.Equal(t, 0, logsSink.LogRecordCount(), "Expected no logs to be created when no events match filter")
+	assert.Equal(t, 0, len(logsSink.AllLogs()), "Expected no log batches to be sent to consumer")
+}
